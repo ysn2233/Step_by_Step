@@ -8,6 +8,6 @@ of the input program.
 python unparse.py multiples.py
 ```
 
-To see the implementation details, you may try `git diff 625061b:unparser.py
-cc81106:unparser.py`.
+To see the implementation details, you may try
+`git diff 625061b:unparser.py cc81106:unparser.py`.
 
