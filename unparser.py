@@ -40,6 +40,14 @@ class Unparser:
         "Indent a piece of text, according to the current indentation level"
         self.f.write("\n"+"    "*self._indent + text)
 
+    def newline(self):
+        """BY WL: write a newline to screen"""
+        self.f.write("\n")
+
+    def indent(self):
+        """BY WL: write appropriate indentation"""
+        self.f.write("    " * self._indent)
+
     def write(self, text):
         "Append a piece of text to the current line."
         self.f.write(text)
@@ -96,11 +104,20 @@ class Unparser:
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _Assign(self, t):
-        self.fill()
+        # self.fill()
+        # for target in t.targets:
+        #     self.dispatch(target)
+        #     self.write(" = ")
+        # self.dispatch(t.value)
+        self.indent()
+        self.write("Assign ")
+        self.dispatch(t.value)
+        self.write(" to ")
         for target in t.targets:
             self.dispatch(target)
-            self.write(" = ")
-        self.dispatch(t.value)
+        self.newline()
+        #     self.write(" = ")
+        # self.dispatch(t.value)
 
     def _AugAssign(self, t):
         self.fill()
@@ -145,18 +162,27 @@ class Unparser:
             self.dispatch(t.locals)
 
     def _Print(self, t):
-        self.fill("print ")
+        # self.fill("print ")
+        # do_comma = False
+        # if t.dest:
+        #     self.write(">>")
+        #     self.dispatch(t.dest)
+        #     do_comma = True
+        # for e in t.values:
+        #     if do_comma:self.write(", ")
+        #     else:do_comma=True
+        #     self.dispatch(e)
+        # if not t.nl:
+        #     self.write(",")
+        self.indent()
+        self.write("print the result of ")
         do_comma = False
-        if t.dest:
-            self.write(">>")
-            self.dispatch(t.dest)
-            do_comma = True
         for e in t.values:
-            if do_comma:self.write(", ")
-            else:do_comma=True
+            if do_comma: self.write(', ')
+            else: do_comma = True
             self.dispatch(e)
-        if not t.nl:
-            self.write(",")
+        self.write(" to screen")
+        self.newline()
 
     def _Global(self, t):
         self.fill("global ")
@@ -251,18 +277,25 @@ class Unparser:
         self.leave()
 
     def _For(self, t):
-        self.fill("for ")
-        self.dispatch(t.target)
-        self.write(" in ")
+        # self.fill("for ")
+        # self.dispatch(t.target)
+        # self.write(" in ")
+        # self.dispatch(t.iter)
+        # self.enter()
+        # self.dispatch(t.body)
+        # self.leave()
+        # if t.orelse:
+        #     self.fill("else")
+        #     self.enter()
+        #     self.dispatch(t.orelse)
+        #     self.leave()
+        self.indent()
+        self.write("Write a for loop that iterate over the elements of ")
         self.dispatch(t.iter)
+        self.write("; within each pass")
         self.enter()
+        self.newline()
         self.dispatch(t.body)
-        self.leave()
-        if t.orelse:
-            self.fill("else")
-            self.enter()
-            self.dispatch(t.orelse)
-            self.leave()
 
     def _If(self, t):
         self.fill("if ")
