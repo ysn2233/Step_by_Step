@@ -6,6 +6,7 @@ import os
 
 FUNCTION = False
 INFUNCTION = False
+
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
@@ -36,6 +37,7 @@ class Unparser:
         self._indent = 0
         self.dispatch(tree)
         self.f.write("")
+        self.newline()
         self.f.flush()
 
     def fill(self, text = ""):
@@ -85,14 +87,16 @@ class Unparser:
             self.dispatch(stmt)
 
     # stmt
+
     def _Expr(self, tree):
         self.fill()
         self.dispatch(tree.value)
 
     def _Import(self, t):
-        self.fill("import ")
+        self.fill("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
-        self.write("\n")
+        self.write(" module")
+        print
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
@@ -123,9 +127,20 @@ class Unparser:
         # self.dispatch(t.value)
 
     def _AugAssign(self, t):
+
+	'''
         self.fill()
         self.dispatch(t.target)
         self.write(" "+self.binop[t.op.__class__.__name__]+"= ")
+        self.dispatch(t.value)
+	'''
+	# Jack's implementation
+        self.fill()
+	self.write("New ")
+        self.dispatch(t.target)
+	self.write(" is the Old ")
+        self.dispatch(t.target)
+        self.write(" "+self.binop[t.op.__class__.__name__])
         self.dispatch(t.value)
 
     def _Return(self, t):
@@ -177,6 +192,7 @@ class Unparser:
         #     self.dispatch(e)
         # if not t.nl:
         #     self.write(",")
+	self.newline()  #FIXME
         self.indent()
         self.write("print the result of ")
         do_comma = False
@@ -268,25 +284,28 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        # self.write("\n")
-        # for deco in t.decorator_list:
-        #     self.fill("@")
-        #     self.dispatch(deco)
-        # self.fill("def "+t.name + "(")
-        # self.dispatch(t.args)
-        # self.write(")")
-        # self.enter()
-        # self.dispatch(t.body)
-        # self.leave()
-        global FUNCTION
-        FUNCTION = True
+	'''
         self.write("\n")
-        self.indent();
-        self.write("Define a function whose name is " + t.name)
+        for deco in t.decorator_list:
+            self.fill("@")
+            self.dispatch(deco)
+        self.fill("def "+t.name + "(")
+        self.dispatch(t.args)
+        self.write(")")
         self.enter()
         self.dispatch(t.body)
         self.leave()
-        FUNCTION = False
+	'''
+        # Jack's implementation
+	self.write("\n"+"Define a function called: "+ t.name + "")
+    	self.write("\n" + "Set the input arguments to: ")
+        self.dispatch(t.args)
+        self.enter()
+        self.newline()
+        self.dispatch(t.body)
+        self.leave()
+	
+
 
     def _For(self, t):
         # self.fill("for ")
@@ -310,8 +329,10 @@ class Unparser:
         self.dispatch(t.body)
 
     def _If(self, t):
+
         self.fill("if ")
         self.dispatch(t.test)
+	self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -331,7 +352,10 @@ class Unparser:
             self.dispatch(t.orelse)
             self.leave()
 
+
+
     def _While(self, t):
+        '''
         self.fill("while ")
         self.dispatch(t.test)
         self.enter()
@@ -342,6 +366,17 @@ class Unparser:
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
+        '''
+        # Jack's implementation
+
+        self.fill("while ")
+        self.dispatch(t.test)
+	self.write(", do the following")
+        self.enter()
+        self.dispatch(t.body)
+	self.leave()
+
+
 
     def _With(self, t):
         self.fill("with ")
@@ -525,6 +560,38 @@ class Unparser:
         #self.write(t.attr)
 
     def _Call(self, t):
+        """
+	# Jack's implementation
+	self.write("Call function ")
+	#
+        self.dispatch(t.func)
+	#
+	self.write(" with the following input arguments: ")
+	#
+        self.write("(")
+        comma = False
+        for e in t.args:
+            if comma: self.write(", ")
+            else: comma = True
+            self.dispatch(e)
+        for e in t.keywords:
+            if comma: self.write(", ")
+            else: comma = True
+            self.dispatch(e)
+        if t.starargs:
+            if comma: self.write(", ")
+            else: comma = True
+            self.write("*")
+            self.dispatch(t.starargs)
+        if t.kwargs:
+            if comma: self.write(", ")
+            else: comma = True
+            self.write("**")
+            self.dispatch(t.kwargs)
+        self.write(")")
+	# jack
+	self.newline()
+        """
         self.write("function call of ")
         self.dispatch(t.func)
         global INFUNCTION
