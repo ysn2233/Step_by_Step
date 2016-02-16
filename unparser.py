@@ -90,6 +90,7 @@ class Unparser:
     def _Import(self, t):
         self.fill("import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
+        self.write("\n")
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
@@ -265,16 +266,20 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        self.write("\n")
-        for deco in t.decorator_list:
-            self.fill("@")
-            self.dispatch(deco)
-        self.fill("def "+t.name + "(")
-        self.dispatch(t.args)
-        self.write(")")
+        # self.write("\n")
+        # for deco in t.decorator_list:
+        #     self.fill("@")
+        #     self.dispatch(deco)
+        # self.fill("def "+t.name + "(")
+        # self.dispatch(t.args)
+        # self.write(")")
+        # self.enter()
+        # self.dispatch(t.body)
+        # self.leave()
+        self.indent();
+        self.write("Define a function whose name is " + t.name)
         self.enter()
         self.dispatch(t.body)
-        self.leave()
 
     def _For(self, t):
         # self.fill("for ")
@@ -498,18 +503,21 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
+        self.write("call of function '" + t.attr + "' of object '")
         self.dispatch(t.value)
+        self.write("'")
+        # self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
         # it or add an extra space to get 3 .__abs__().
         if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
             self.write(" ")
-        self.write(".")
-        self.write(t.attr)
+        #self.write(".")
+        #self.write(t.attr)
 
     def _Call(self, t):
         self.dispatch(t.func)
-        self.write("(")
+        self.write("-parameters(")
         comma = False
         for e in t.args:
             if comma: self.write(", ")
@@ -529,7 +537,7 @@ class Unparser:
             else: comma = True
             self.write("**")
             self.dispatch(t.kwargs)
-        self.write(")")
+        self.write(")\n")
 
     def _Subscript(self, t):
         self.dispatch(t.value)
