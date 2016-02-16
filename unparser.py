@@ -4,6 +4,8 @@ import ast
 import cStringIO
 import os
 
+FUNCTION = False
+INFUNCTION = False
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
@@ -276,10 +278,13 @@ class Unparser:
         # self.enter()
         # self.dispatch(t.body)
         # self.leave()
+        global FUNCTION
+        FUNCTION = True
         self.indent();
         self.write("Define a function whose name is " + t.name)
         self.enter()
         self.dispatch(t.body)
+        FUNCTION = False
 
     def _For(self, t):
         # self.fill("for ")
@@ -503,9 +508,11 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write("call of function '" + t.attr + "' of object '")
+        self.write(t.attr)
+        global INFUNCTION
+        INFUNCTION = True
+        self.write(" of object ")
         self.dispatch(t.value)
-        self.write("'")
         # self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
@@ -516,8 +523,13 @@ class Unparser:
         #self.write(t.attr)
 
     def _Call(self, t):
+        self.write("function call of ")
         self.dispatch(t.func)
-        self.write("-parameters(")
+        global INFUNCTION
+        if(INFUNCTION == False and FUNCTION == True):
+            print (" recursively ")
+        INFUNCTION = False
+        self.write("(")
         comma = False
         for e in t.args:
             if comma: self.write(", ")
