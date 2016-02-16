@@ -280,10 +280,12 @@ class Unparser:
         # self.leave()
         global FUNCTION
         FUNCTION = True
+        self.write("\n")
         self.indent();
         self.write("Define a function whose name is " + t.name)
         self.enter()
         self.dispatch(t.body)
+        self.leave()
         FUNCTION = False
 
     def _For(self, t):
@@ -549,7 +551,8 @@ class Unparser:
             else: comma = True
             self.write("**")
             self.dispatch(t.kwargs)
-        self.write(")\n")
+        # self.write(")\n")
+        self.write(")")
 
     def _Subscript(self, t):
         self.dispatch(t.value)
