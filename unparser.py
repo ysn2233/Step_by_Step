@@ -118,23 +118,13 @@ class Unparser:
         #     self.write(" = ")
         # self.dispatch(t.value)
  
-        assign = False
-        for target in t.targets:
-            if target.id in VARS:
-                assign = True
-            else:
-                VARS.append(target.id)
-
-        if assign == True:
-            self.indent()
-            self.write("Assign ")
-            self.dispatch(t.value)
-            self.write(" to variable ")
+        Init = False
+        if isinstance(t.targets[0], ast.Name):
             for target in t.targets:
-                self.dispatch(target)
-            self.newline()
-
-        else:
+                if not target.id in VARS:
+                    VARS.append(target.id)
+                    Init = True
+        if Init:
             self.indent()
             self.write("Create and initialize variable ")
             for target in t.targets:
@@ -143,18 +133,15 @@ class Unparser:
             self.dispatch(t.value)
             self.newline()
 
-        '''
-        self.indent()
-        self.write("Assign ")
-        self.dispatch(t.value)
-        self.write(" to ")
-        for target in t.targets:
-            self.dispatch(target)
-        self.newline()
-        #     self.write(" = ")
-        # self.dispatch(t.value)
+        else:
+            self.indent()
+            self.write("Assign ")
+            self.dispatch(t.value)
+            self.write(" to variable ")
+            for target in t.targets:
+                self.dispatch(target)
+            self.newline()
 
-        '''
 
     def _AugAssign(self, t):
 
@@ -178,6 +165,7 @@ class Unparser:
         if t.value:
             self.write(" ")
             self.dispatch(t.value)
+        self.newline()
 
     def _Pass(self, t):
         self.fill("pass")
