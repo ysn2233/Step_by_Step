@@ -158,17 +158,17 @@ class Unparser:
 
     def _AugAssign(self, t):
 
-	'''
+        '''
         self.fill()
         self.dispatch(t.target)
         self.write(" "+self.binop[t.op.__class__.__name__]+"= ")
         self.dispatch(t.value)
-	'''
-	# Jack's implementation
+        '''
+        # Jack's implementation
         self.fill()
-	self.write("New ")
+        self.write("New ")
         self.dispatch(t.target)
-	self.write(" is the Old ")
+        self.write(" is the Old ")
         self.dispatch(t.target)
         self.write(" "+self.binop[t.op.__class__.__name__])
         self.dispatch(t.value)
@@ -222,7 +222,7 @@ class Unparser:
         #     self.dispatch(e)
         # if not t.nl:
         #     self.write(",")
-	self.newline()  #FIXME
+        self.newline()  #FIXME
         self.indent()
         self.write("print the result of ")
         do_comma = False
@@ -314,7 +314,7 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-	'''
+        '''
         self.write("\n")
         for deco in t.decorator_list:
             self.fill("@")
@@ -325,17 +325,15 @@ class Unparser:
         self.enter()
         self.dispatch(t.body)
         self.leave()
-	'''
+        '''
         # Jack's implementation
-	self.write("\n"+"Define a function called: "+ t.name + "")
-    	self.write("\n" + "Set the input arguments to: ")
+        self.write("\n"+"Define a function called: "+ t.name + "")
+        self.write("\n" + "Set the input arguments to: ")
         self.dispatch(t.args)
         self.enter()
         self.newline()
         self.dispatch(t.body)
         self.leave()
-	
-
 
     def _For(self, t):
         # self.fill("for ")
@@ -350,19 +348,21 @@ class Unparser:
         #     self.enter()
         #     self.dispatch(t.orelse)
         #     self.leave()
+
         self.indent()
-        self.write("Write a for loop that iterate over the elements of ")
+        self.write("Iterate the variable ")
+        self.dispatch(t.target)
+        self.write(" over ")
         self.dispatch(t.iter)
-        self.write("; within each pass")
+        self.write(", and do the following")
         self.enter()
-        self.newline()
         self.dispatch(t.body)
 
     def _If(self, t):
 
         self.fill("if ")
         self.dispatch(t.test)
-	self.write(", do the following")
+        self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -401,10 +401,10 @@ class Unparser:
 
         self.fill("while ")
         self.dispatch(t.test)
-	self.write(", do the following")
+        self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
-	self.leave()
+        self.leave()
 
 
 
@@ -591,13 +591,13 @@ class Unparser:
 
     def _Call(self, t):
         """
-	# Jack's implementation
-	self.write("Call function ")
-	#
+        # Jack's implementation
+        self.write("Call function ")
+        #
         self.dispatch(t.func)
-	#
-	self.write(" with the following input arguments: ")
-	#
+        #
+        self.write(" with the following input arguments: ")
+        #
         self.write("(")
         comma = False
         for e in t.args:
@@ -619,9 +619,33 @@ class Unparser:
             self.write("**")
             self.dispatch(t.kwargs)
         self.write(")")
-	# jack
-	self.newline()
+        # jack
+        self.newline()
         """
+
+        # special requirement on range([start], stop[, step])
+        if isinstance(t.func, ast.Name) and t.func.id == "range":
+            cnt = 0
+            for e in t.args:
+                cnt += 1
+            if cnt == 1:
+                self.write("the range from 0 to ")
+                self.dispatch(t.args[0])
+            elif cnt == 2:
+                self.write("the range from ")
+                self.dispatch(t.args[0])
+                self.write(" to ")
+                self.dispatch(t.args[1])
+            else:
+                self.write("the range from ")
+                self.dispatch(t.args[0])
+                self.write(" to ")
+                self.dispatch(t.args[1])
+                self.write(" with the step of ")
+                self.dispatch(t.args[2])
+            return
+        # special requirement on range([start], stop[, step])
+
         self.write("function call of ")
         self.dispatch(t.func)
         global INFUNCTION
