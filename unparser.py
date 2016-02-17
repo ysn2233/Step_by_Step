@@ -6,7 +6,7 @@ import os
 
 FUNCTION = False
 INFUNCTION = False
-
+VARS = []
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
@@ -39,6 +39,7 @@ class Unparser:
         self.f.write("")
         self.newline()
         self.f.flush()
+
 
     def fill(self, text = ""):
         "Indent a piece of text, according to the current indentation level"
@@ -116,6 +117,33 @@ class Unparser:
         #     self.dispatch(target)
         #     self.write(" = ")
         # self.dispatch(t.value)
+ 
+        assign = False
+        for target in t.targets:
+            if target.id in VARS:
+                assign = True
+            else:
+                VARS.append(target.id)
+
+        if assign == True:
+            self.indent()
+            self.write("Assign ")
+            self.dispatch(t.value)
+            self.write(" to variable ")
+            for target in t.targets:
+                self.dispatch(target)
+            self.newline()
+
+        else:
+            self.indent()
+            self.write("Create and initialize variable ")
+            for target in t.targets:
+                self.dispatch(target)
+            self.write(" to ")
+            self.dispatch(t.value)
+            self.newline()
+
+        '''
         self.indent()
         self.write("Assign ")
         self.dispatch(t.value)
@@ -125,6 +153,8 @@ class Unparser:
         self.newline()
         #     self.write(" = ")
         # self.dispatch(t.value)
+
+        '''
 
     def _AugAssign(self, t):
 
@@ -718,6 +748,7 @@ def testdir(a):
                 testdir(fullname)
 
 def main(args):
+    
     if args[0] == '--testdir':
         for a in args[1:]:
             testdir(a)
