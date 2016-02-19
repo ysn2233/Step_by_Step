@@ -159,11 +159,11 @@ class Unparser:
         '''
         # Jack's implementation
         self.fill()
-        self.write("New ")
+        self.write("The new value of ")
         self.dispatch(t.target)
-        self.write(" is the Old ")
-        self.dispatch(t.target)
-        self.write(" "+self.binop[t.op.__class__.__name__])
+        self.write(" is itself")
+        #self.dispatch(t.target)
+        self.write(" "+self.binop[t.op.__class__.__name__]+' ')
         self.dispatch(t.value)
 
     def _Return(self, t):
@@ -543,9 +543,17 @@ class Unparser:
             self.dispatch(t.operand)
         self.write(")")
 
+    '''
     binop = { "Add":"+", "Sub":"-", "Mult":"*", "Div":"/", "Mod":"%",
                     "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
                     "FloorDiv":"//", "Pow": "**"}
+    '''
+
+    binop = { "Add":"adds", "Sub":"subtracts", "Mult":"multiplies",
+            "Div":"divided by", "Mod":"modulo",
+                    "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
+                    "FloorDiv":"floor divided by", "Pow": "to the power of"}
+
     def _BinOp(self, t):
         self.write("(")
         self.dispatch(t.left)
@@ -553,7 +561,9 @@ class Unparser:
         self.dispatch(t.right)
         self.write(")")
 
-    cmpops = {"Eq":"==", "NotEq":"!=", "Lt":"<", "LtE":"<=", "Gt":">", "GtE":">=",
+    cmpops = {"Eq":"is equal to", "NotEq":"is not equal to", "Lt":"is smaller than", 
+    "LtE":"is smaller than or equals to", "Gt":"is larger than", 
+    "GtE":"is greater than or equals to",
                         "Is":"is", "IsNot":"is not", "In":"in", "NotIn":"not in"}
     def _Compare(self, t):
         self.write("(")
