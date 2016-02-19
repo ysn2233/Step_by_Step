@@ -4,8 +4,6 @@ import ast
 import cStringIO
 import os
 
-FUNCTION = False
-INFUNCTION = False
 VARS = []
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
@@ -28,6 +26,12 @@ class Unparser:
     """Methods in this class recursively traverse an AST and
     output source code for the abstract syntax; original formatting
     is disregarded. """
+
+    # member varibale (some flags to handle different cases)
+    func_name = " "
+    func_assign = False
+
+    ###################
 
     def __init__(self, tree, file = sys.stdout):
         """Unparser(tree, file=sys.stdout) -> None.
@@ -130,13 +134,15 @@ class Unparser:
             for target in t.targets:
                 self.dispatch(target)
             self.write(" to ")
+            if isinstance(t.value, ast.Call):
+                self.func_assign = True;
             self.dispatch(t.value)
             self.newline()
 
         else:
             self.indent()
             self.write("Assign ")
-            self.dispatch(t.value)
+            self.write(t.value)
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
@@ -302,7 +308,7 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        '''
+        '''call
         self.write("\n")
         for deco in t.decorator_list:
             self.fill("@")
@@ -315,12 +321,14 @@ class Unparser:
         self.leave()
         '''
         # Jack's implementation
+        self.func_name = t.name
         self.write("\n"+"Define a function called: "+ t.name + "")
         self.write("\n" + "Set the input arguments to: ")
         self.dispatch(t.args)
         self.enter()
         self.newline()
         self.dispatch(t.body)
+        self.func_name = " "
         self.leave()
 
     def _For(self, t):
@@ -633,15 +641,21 @@ class Unparser:
                 self.dispatch(t.args[2])
             return
         # special requirement on range([start], stop[, step])
-
-        self.write("function call of ")
+        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+            self.write("Recursive ")
+        if (self.func_assign == True):
+            self.write ("return value of function ")
+            self.func_assign = False;
+        else:
+            self.write("Call function ")
         self.dispatch(t.func)
-        global INFUNCTION
-        if(INFUNCTION == False and FUNCTION == True):
-            print (" recursively ")
-        INFUNCTION = False
         self.write("(")
         comma = False
+        # handle cases of no parameters
+        if not t.args:
+            self.write("no parameter")
+        else:
+            self.write("pass in parameters: ")
         for e in t.args:
             if comma: self.write(", ")
             else: comma = True
