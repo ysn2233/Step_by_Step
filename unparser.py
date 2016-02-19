@@ -153,11 +153,11 @@ class Unparser:
         '''
         # Jack's implementation
         self.fill()
-        self.write("New ")
+        self.write("The new value of ")
         self.dispatch(t.target)
-        self.write(" is the Old ")
-        self.dispatch(t.target)
-        self.write(" "+self.binop[t.op.__class__.__name__])
+        self.write(" is itself")
+        #self.dispatch(t.target)
+        self.write(" "+self.binop[t.op.__class__.__name__]+' ')
         self.dispatch(t.value)
 
     def _Return(self, t):
@@ -542,9 +542,9 @@ class Unparser:
     '''
 
     binop = { "Add":"adds", "Sub":"subtracts", "Mult":"multiplies",
-            "Div":"is divided by", "Mod":"modulo",
+            "Div":"divided by", "Mod":"modulo",
                     "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
-                    "FloorDiv":"is floor divided by", "Pow": "to the power of"}
+                    "FloorDiv":"floor divided by", "Pow": "to the power of"}
 
     def _BinOp(self, t):
         self.write("(")
