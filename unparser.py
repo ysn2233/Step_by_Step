@@ -121,7 +121,7 @@ class Unparser:
         #     self.dispatch(target)
         #     self.write(" = ")
         # self.dispatch(t.value)
- 
+
         Init = False
         if isinstance(t.targets[0], ast.Name):
             for target in t.targets:
@@ -173,18 +173,11 @@ class Unparser:
             self.dispatch(t.value)
         self.newline()
 
-    def _Pass(self, t):
-        self.fill("pass")
-
     def _Break(self, t):
         self.fill("break")
 
     def _Continue(self, t):
         self.fill("continue")
-
-    def _Delete(self, t):
-        self.fill("del ")
-        interleave(lambda: self.write(", "), self.dispatch, t.targets)
 
     def _Assert(self, t):
         self.fill("assert ")
@@ -192,16 +185,6 @@ class Unparser:
         if t.msg:
             self.write(", ")
             self.dispatch(t.msg)
-
-    def _Exec(self, t):
-        self.fill("exec ")
-        self.dispatch(t.body)
-        if t.globals:
-            self.write(" in ")
-            self.dispatch(t.globals)
-        if t.locals:
-            self.write(", ")
-            self.dispatch(t.locals)
 
     def _Print(self, t):
         # self.fill("print ")
@@ -227,75 +210,8 @@ class Unparser:
         self.write(" to screen")
         self.newline()
 
-    def _Global(self, t):
-        self.fill("global ")
-        interleave(lambda: self.write(", "), self.write, t.names)
-
-    def _Yield(self, t):
-        self.write("(")
-        self.write("yield")
-        if t.value:
-            self.write(" ")
-            self.dispatch(t.value)
-        self.write(")")
-
-    def _Raise(self, t):
-        self.fill('raise ')
-        if t.type:
-            self.dispatch(t.type)
-        if t.inst:
-            self.write(", ")
-            self.dispatch(t.inst)
-        if t.tback:
-            self.write(", ")
-            self.dispatch(t.tback)
-
-    def _TryExcept(self, t):
-        self.fill("try")
-        self.enter()
-        self.dispatch(t.body)
-        self.leave()
-
-        for ex in t.handlers:
-            self.dispatch(ex)
-        if t.orelse:
-            self.fill("else")
-            self.enter()
-            self.dispatch(t.orelse)
-            self.leave()
-
-    def _TryFinally(self, t):
-        if len(t.body) == 1 and isinstance(t.body[0], ast.TryExcept):
-            # try-except-finally
-            self.dispatch(t.body)
-        else:
-            self.fill("try")
-            self.enter()
-            self.dispatch(t.body)
-            self.leave()
-
-        self.fill("finally")
-        self.enter()
-        self.dispatch(t.finalbody)
-        self.leave()
-
-    def _ExceptHandler(self, t):
-        self.fill("except")
-        if t.type:
-            self.write(" ")
-            self.dispatch(t.type)
-        if t.name:
-            self.write(" as ")
-            self.dispatch(t.name)
-        self.enter()
-        self.dispatch(t.body)
-        self.leave()
-
     def _ClassDef(self, t):
         self.write("\n")
-        for deco in t.decorator_list:
-            self.fill("@")
-            self.dispatch(deco)
         self.fill("class "+t.name)
         if t.bases:
             self.write("(")
@@ -402,18 +318,6 @@ class Unparser:
         self.dispatch(t.body)
         self.leave()
 
-
-
-    def _With(self, t):
-        self.fill("with ")
-        self.dispatch(t.context_expr)
-        if t.optional_vars:
-            self.write(" as ")
-            self.dispatch(t.optional_vars)
-        self.enter()
-        self.dispatch(t.body)
-        self.leave()
-
     # expr
     def _Str(self, tree):
         # if from __future__ import unicode_literals is in effect,
@@ -450,45 +354,6 @@ class Unparser:
         self.write("[")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("]")
-
-    def _ListComp(self, t):
-        self.write("[")
-        self.dispatch(t.elt)
-        for gen in t.generators:
-            self.dispatch(gen)
-        self.write("]")
-
-    def _GeneratorExp(self, t):
-        self.write("(")
-        self.dispatch(t.elt)
-        for gen in t.generators:
-            self.dispatch(gen)
-        self.write(")")
-
-    def _SetComp(self, t):
-        self.write("{")
-        self.dispatch(t.elt)
-        for gen in t.generators:
-            self.dispatch(gen)
-        self.write("}")
-
-    def _DictComp(self, t):
-        self.write("{")
-        self.dispatch(t.key)
-        self.write(": ")
-        self.dispatch(t.value)
-        for gen in t.generators:
-            self.dispatch(gen)
-        self.write("}")
-
-    def _comprehension(self, t):
-        self.write(" for ")
-        self.dispatch(t.target)
-        self.write(" in ")
-        self.dispatch(t.iter)
-        for if_clause in t.ifs:
-            self.write(" if ")
-            self.dispatch(if_clause)
 
     def _IfExp(self, t):
         self.write("(")
@@ -693,10 +558,6 @@ class Unparser:
         self.dispatch(t.slice)
         self.write("]")
 
-    # slice
-    def _Ellipsis(self, t):
-        self.write("...")
-
     def _Index(self, t):
         self.dispatch(t.value)
 
@@ -743,14 +604,6 @@ class Unparser:
         self.write(t.arg)
         self.write("=")
         self.dispatch(t.value)
-
-    def _Lambda(self, t):
-        self.write("(")
-        self.write("lambda ")
-        self.dispatch(t.args)
-        self.write(": ")
-        self.dispatch(t.body)
-        self.write(")")
 
     def _alias(self, t):
         self.write(t.name)
