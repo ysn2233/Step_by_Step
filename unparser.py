@@ -584,7 +584,7 @@ class Unparser:
         self.write(t.attr)
         global INFUNCTION
         INFUNCTION = True
-        self.write(" of object ")
+        self.write(" on object ")
         self.dispatch(t.value)
         # self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
@@ -659,13 +659,13 @@ class Unparser:
         else:
             self.write("Call function ")
         self.dispatch(t.func)
-        self.write("(")
+        # self.write("(")
         comma = False
         # handle cases of no parameters
         if not t.args:
-            self.write("no parameter")
+            self.write(" with no parameter")
         else:
-            self.write("pass in parameters: ")
+            self.write(" with parameter of ")
         for e in t.args:
             if comma: self.write(", ")
             else: comma = True
@@ -685,7 +685,7 @@ class Unparser:
             self.write("**")
             self.dispatch(t.kwargs)
         # self.write(")\n")
-        self.write(")")
+        # self.write(")")
 
     def _Subscript(self, t):
         self.dispatch(t.value)
