@@ -1,3 +1,9 @@
+#!/usr/bin/python
+# -*- coding: utf8 -*-
+
+# originally from official python source code
+# http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
+
 "Usage: unparse.py <path to source file>"
 import sys
 import ast
