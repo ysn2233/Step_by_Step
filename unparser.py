@@ -35,7 +35,7 @@ class Unparser:
 
     # member varibale (some flags to handle different cases)
     func_name = " "
-    func_assign = False
+    no_direct_call = False
 
     ###################
 
@@ -138,11 +138,14 @@ class Unparser:
             self.indent()
             self.write("Create and initialize variable ")
             for target in t.targets:
+                self.write("\'")
                 self.dispatch(target)
+                self.write("\'")
             self.write(" to ")
             if isinstance(t.value, ast.Call):
-                self.func_assign = True;
+                self.no_direct_call = True
             self.dispatch(t.value)
+            self.no_direct_call = False
             self.newline()
 
         else:
@@ -205,6 +208,7 @@ class Unparser:
         #     self.dispatch(e)
         # if not t.nl:
         #     self.write(",")
+        self.no_direct_call = True
         self.newline()  #FIXME
         self.indent()
         self.write("print the result of ")
@@ -214,6 +218,7 @@ class Unparser:
             else: do_comma = True
             self.dispatch(e)
         self.write(" to screen")
+        self.no_direct_call = False
         self.newline()
 
     def _ClassDef(self, t):
@@ -452,11 +457,12 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write(t.attr)
+        self.write('\'' + t.attr + '\'')
         global INFUNCTION
         INFUNCTION = True
-        self.write(" on object ")
+        self.write(" on object '")
         self.dispatch(t.value)
+        self.write("\'")
         # self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
@@ -524,12 +530,16 @@ class Unparser:
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
             self.write("Recursive ")
-        if (self.func_assign == True):
+        if (self.no_direct_call == True):
             self.write ("return value of function ")
-            self.func_assign = False;
+            self.no_direct_cal = False;
         else:
             self.write("Call function ")
+        if isinstance(t.func, ast.Name):
+            self.write("'")
         self.dispatch(t.func)
+        if isinstance(t.func, ast.Name):
+            self.write("'")
         # self.write("(")
         comma = False
         # handle cases of no parameters
