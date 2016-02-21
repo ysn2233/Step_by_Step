@@ -151,7 +151,7 @@ class Unparser:
         else:
             self.indent()
             self.write("Assign ")
-            self.write(t.value)
+            self.dispatch(t.value)
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
