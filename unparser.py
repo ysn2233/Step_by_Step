@@ -249,11 +249,12 @@ class Unparser:
         '''
         # Jack's implementation
         self.func_name = t.name
-        self.write("\n"+"Define a function called: "+ t.name + "")
-        self.write("\n" + "Set the input arguments to: ")
+        self.write("\n"+"Define a function called '" + t.name + "'")
+        self.write("\n" + "Set the input arguments to (")
         self.dispatch(t.args)
+        self.write(")")
         self.enter()
-        self.newline()
+        # self.newline()
         self.dispatch(t.body)
         self.func_name = " "
         self.leave()
@@ -283,7 +284,7 @@ class Unparser:
 
     def _If(self, t):
 
-        self.fill("if ")
+        self.fill("If ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -300,7 +301,7 @@ class Unparser:
             self.leave()
         # final else
         if t.orelse:
-            self.fill("else")
+            self.fill("Else, do the following")
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
@@ -528,8 +529,8 @@ class Unparser:
                 self.dispatch(t.args[2])
             return
         # special requirement on range([start], stop[, step])
-        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-            self.write("Recursive ")
+        # if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+        #    self.write("Recursive ")
         if (self.no_direct_call == True):
             self.write ("return value of function ")
             self.no_direct_cal = False;
@@ -544,7 +545,7 @@ class Unparser:
         comma = False
         # handle cases of no parameters
         if not t.args:
-            self.write(" with no parameter")
+            self.write(" without parameter")
         else:
             self.write(" with parameter of ")
         for e in t.args:
