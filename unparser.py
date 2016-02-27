@@ -528,9 +528,7 @@ class Unparser:
                 self.write(" with the step of ")
                 self.dispatch(t.args[2])
             return
-        # special requirement on range([start], stop[, step])
-        # if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-        #    self.write("Recursive ")
+        # special requirement on range([start], stop[, step])sub
         if (self.no_direct_call == True):
             self.write ("return value of function ")
             self.no_direct_cal = False;
@@ -541,6 +539,8 @@ class Unparser:
         self.dispatch(t.func)
         if isinstance(t.func, ast.Name):
             self.write("'")
+        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+            self.write(" recursively")
         # self.write("(")
         comma = False
         # handle cases of no parameters
