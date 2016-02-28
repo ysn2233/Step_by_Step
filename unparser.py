@@ -46,22 +46,22 @@ class Unparser:
         self.future_imports = []
         self._indent = 0
         self.dispatch(tree)
-        self.f.write("")
+        self.write("")
         self.newline()
         self.f.flush()
 
 
     def fill(self, text = ""):
         "Indent a piece of text, according to the current indentation level"
-        self.f.write("\n"+"    "*self._indent + text)
+        self.write("\n"+"    "*self._indent + text)
 
     def newline(self):
         """BY WL: write a newline to screen"""
-        self.f.write("\n")
+        self.write("\n")
 
     def indent(self):
         """BY WL: write appropriate indentation"""
-        self.f.write("    " * self._indent)
+        self.write("    " * self._indent)
 
     def write(self, text):
         "Append a piece of text to the current line."
