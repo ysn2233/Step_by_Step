@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 
 # originally from official python source code
 # http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
