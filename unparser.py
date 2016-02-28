@@ -11,9 +11,6 @@ import cStringIO
 import os
 
 VARS = []
-# Large float and imaginary literals get turned into infinities in the AST.
-# We unparse those infinities to INFSTR.
-INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
 def interleave(inter, f, seq):
     """Call f on each item in seq, calling inter() in between.
@@ -47,20 +44,15 @@ class Unparser:
         self._indent = 0
         self.dispatch(tree)
         self.write("")
-        self.newline()
+        self.newline()  # to surpress wired % sign
         self.f.flush()
 
-
-    def fill(self, text = ""):
-        "Indent a piece of text, according to the current indentation level"
-        self.write("\n"+"    "*self._indent + text)
-
     def newline(self):
-        """BY WL: write a newline to screen"""
+        """Write a newline"""
         self.write("\n")
 
     def indent(self):
-        """BY WL: write appropriate indentation"""
+        """Write appropriate indentation"""
         self.write("    " * self._indent)
 
     def write(self, text):
@@ -78,6 +70,9 @@ class Unparser:
 
     def dispatch(self, tree):
         "Dispatcher function, dispatching tree type T to method _T."
+        if isinstance(tree, ast.stmt):
+            self.newline()
+
         if isinstance(tree, list):
             for t in tree:
                 self.dispatch(t)
@@ -100,21 +95,22 @@ class Unparser:
     # stmt
 
     def _Expr(self, tree):
-        self.fill()
+        self.indent()
         self.dispatch(tree.value)
 
     def _Import(self, t):
-        self.fill("Import the ")
+        self.indent()
+        self.write("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
         self.write(" module")
-        print
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
         if t.module and t.module == '__future__':
             self.future_imports.extend(n.name for n in t.names)
 
-        self.fill("from ")
+        self.indent()
+        self.write("from ")
         self.write("." * t.level)
         if t.module:
             self.write(t.module)
@@ -122,12 +118,6 @@ class Unparser:
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _Assign(self, t):
-        # self.fill()
-        # for target in t.targets:
-        #     self.dispatch(target)
-        #     self.write(" = ")
-        # self.dispatch(t.value)
-
         Init = False
         if isinstance(t.targets[0], ast.Name):
             for target in t.targets:
@@ -146,7 +136,6 @@ class Unparser:
                 self.no_direct_call = True
             self.dispatch(t.value)
             self.no_direct_call = False
-            self.newline()
 
         else:
             self.indent()
@@ -155,19 +144,11 @@ class Unparser:
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
-            self.newline()
 
 
     def _AugAssign(self, t):
-
-        '''
-        self.fill()
-        self.dispatch(t.target)
-        self.write(" "+self.binop[t.op.__class__.__name__]+"= ")
-        self.dispatch(t.value)
-        '''
         # Jack's implementation
-        self.fill()
+        self.indent()
         self.write("The new value of ")
         self.dispatch(t.target)
         self.write(" is itself")
@@ -176,40 +157,30 @@ class Unparser:
         self.dispatch(t.value)
 
     def _Return(self, t):
-        self.fill("return")
+        self.indent()
+        self.write("return")
         if t.value:
             self.write(" ")
             self.dispatch(t.value)
-        self.newline()
 
     def _Break(self, t):
-        self.fill("break")
+        self.indent()
+        self.write("break")
 
     def _Continue(self, t):
-        self.fill("continue")
+        self.indent()
+        self.write("continue")
 
     def _Assert(self, t):
-        self.fill("assert ")
+        self.indent()
+        self.write("assert ")
         self.dispatch(t.test)
         if t.msg:
             self.write(", ")
             self.dispatch(t.msg)
 
     def _Print(self, t):
-        # self.fill("print ")
-        # do_comma = False
-        # if t.dest:
-        #     self.write(">>")
-        #     self.dispatch(t.dest)
-        #     do_comma = True
-        # for e in t.values:
-        #     if do_comma:self.write(", ")
-        #     else:do_comma=True
-        #     self.dispatch(e)
-        # if not t.nl:
-        #     self.write(",")
         self.no_direct_call = True
-        self.newline()  #FIXME
         self.indent()
         self.write("print the result of ")
         do_comma = False
@@ -219,11 +190,10 @@ class Unparser:
             self.dispatch(e)
         self.write(" to screen")
         self.no_direct_call = False
-        self.newline()
 
     def _ClassDef(self, t):
-        self.write("\n")
-        self.fill("class "+t.name)
+        self.indent()
+        self.write("class "+t.name)
         if t.bases:
             self.write("(")
             for a in t.bases:
@@ -235,21 +205,9 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        '''call
-        self.write("\n")
-        for deco in t.decorator_list:
-            self.fill("@")
-            self.dispatch(deco)
-        self.fill("def "+t.name + "(")
-        self.dispatch(t.args)
-        self.write(")")
-        self.enter()
-        self.dispatch(t.body)
-        self.leave()
-        '''
-        # Jack's implementation
         self.func_name = t.name
-        self.write("\n"+"Define a function called '" + t.name + "'")
+        # FIXME
+        self.write("Define a function called '" + t.name + "'")
         self.write("\n" + "Set the input arguments to (")
         self.dispatch(t.args)
         self.write(")")
@@ -260,19 +218,6 @@ class Unparser:
         self.leave()
 
     def _For(self, t):
-        # self.fill("for ")
-        # self.dispatch(t.target)
-        # self.write(" in ")
-        # self.dispatch(t.iter)
-        # self.enter()
-        # self.dispatch(t.body)
-        # self.leave()
-        # if t.orelse:
-        #     self.fill("else")
-        #     self.enter()
-        #     self.dispatch(t.orelse)
-        #     self.leave()
-
         self.indent()
         self.write("Iterate the variable ")
         self.dispatch(t.target)
@@ -283,8 +228,8 @@ class Unparser:
         self.dispatch(t.body)
 
     def _If(self, t):
-
-        self.fill("If ")
+        self.indent()
+        self.write("If ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -294,14 +239,16 @@ class Unparser:
         while (t.orelse and len(t.orelse) == 1 and
                isinstance(t.orelse[0], ast.If)):
             t = t.orelse[0]
-            self.fill("elif ")
+            self.indent()
+            self.write("elif ")
             self.dispatch(t.test)
             self.enter()
             self.dispatch(t.body)
             self.leave()
         # final else
         if t.orelse:
-            self.fill("Else, do the following")
+            self.indent()
+            self.write("Else, do the following")
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
@@ -309,21 +256,8 @@ class Unparser:
 
 
     def _While(self, t):
-        '''
-        self.fill("while ")
-        self.dispatch(t.test)
-        self.enter()
-        self.dispatch(t.body)
-        self.leave()
-        if t.orelse:
-            self.fill("else")
-            self.enter()
-            self.dispatch(t.orelse)
-            self.leave()
-        '''
-        # Jack's implementation
-
-        self.fill("while ")
+        self.indent()
+        self.write("while ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -357,8 +291,6 @@ class Unparser:
         # Parenthesize negative numbers, to avoid turning (-1)**2 into -1**2.
         if repr_n.startswith("-"):
             self.write("(")
-        # Substitute overflowing decimal literal for AST infinities.
-        self.write(repr_n.replace("inf", INFSTR))
         if repr_n.startswith("-"):
             self.write(")")
 
@@ -474,39 +406,6 @@ class Unparser:
         #self.write(t.attr)
 
     def _Call(self, t):
-        """
-        # Jack's implementation
-        self.write("Call function ")
-        #
-        self.dispatch(t.func)
-        #
-        self.write(" with the following input arguments: ")
-        #
-        self.write("(")
-        comma = False
-        for e in t.args:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
-        for e in t.keywords:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
-        if t.starargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("*")
-            self.dispatch(t.starargs)
-        if t.kwargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("**")
-            self.dispatch(t.kwargs)
-        self.write(")")
-        # jack
-        self.newline()
-        """
-
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
             cnt = 0
@@ -566,8 +465,6 @@ class Unparser:
             else: comma = True
             self.write("**")
             self.dispatch(t.kwargs)
-        # self.write(")\n")
-        # self.write(")")
 
     def _Subscript(self, t):
         self.dispatch(t.value)
