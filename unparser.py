@@ -426,7 +426,7 @@ class Unparser:
                     "FloorDiv":"//", "Pow": "**"}
     '''
 
-    binop = { "Add":"adds", "Sub":"subtracts", "Mult":"multiplies",
+    binop = { "Add":"adds", "Sub":"minus", "Mult":"times",
             "Div":"divided by", "Mod":"modulo",
                     "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
                     "FloorDiv":"floor divided by", "Pow": "to the power of"}
