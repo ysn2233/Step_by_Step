@@ -43,7 +43,7 @@ class Unparser:
         self.future_imports = []
         self._indent = 0
         self.dispatch(tree)
-        self.write("")
+        # self.write("")
         self.newline()  # to surpress wired % sign
         self.f.flush()
 
@@ -291,6 +291,7 @@ class Unparser:
         # Parenthesize negative numbers, to avoid turning (-1)**2 into -1**2.
         if repr_n.startswith("-"):
             self.write("(")
+        self.write(repr_n)
         if repr_n.startswith("-"):
             self.write(")")
 
