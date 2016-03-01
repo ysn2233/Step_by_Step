@@ -9,6 +9,7 @@ import sys
 import ast
 import cStringIO
 import os
+import json
 
 VARS = []
 # Large float and imaginary literals get turned into infinities in the AST.
@@ -42,14 +43,19 @@ class Unparser:
     def __init__(self, tree, file = sys.stdout):
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
-        self.f = file
+        self.f = cStringIO.StringIO()
+        self.buf = []
         self.future_imports = []
         self._indent = 0
         self.dispatch(tree)
         self.f.write("")
         self.newline()
-        self.f.flush()
+        self.dump()
 
+    def dump(self):
+        """write buf to a json file"""
+        with open('foobar.json', 'w') as out:
+            json.dump(self.buf, out, indent=4)
 
     def fill(self, text = ""):
         "Indent a piece of text, according to the current indentation level"
@@ -57,7 +63,9 @@ class Unparser:
 
     def newline(self):
         """BY WL: write a newline to screen"""
-        self.f.write("\n")
+        # self.f.write("\n")
+        self.buf.append(self.f.getvalue())
+        self.f = cStringIO.StringIO()
 
     def indent(self):
         """BY WL: write appropriate indentation"""
