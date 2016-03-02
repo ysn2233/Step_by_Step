@@ -1,0 +1,11 @@
+# .sample_coveragerc to control coverage.py
+[run]
+branch = True
+data_file = .sample_coverage
+
+[report]
+precision = 2
+
+[html]
+directory = sample_htmlcov
+title = Sample Coverage Report

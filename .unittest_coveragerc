@@ -1,0 +1,12 @@
+# .sample_coveragerc to control coverage.py
+[run]
+branch = True
+data_file = .unittest_coverage
+omit = test_unparser.py
+
+[report]
+precision = 2
+
+[html]
+directory = unittest_htmlcov
+title = Unittest Coverage Report

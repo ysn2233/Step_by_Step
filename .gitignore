@@ -1,5 +1,5 @@
 *.pyc
 *.swp
-.coverage
-htmlcov/
-sample_outputs/
+.sample_coverage
+.unittest_coverage
+unparser.pyc

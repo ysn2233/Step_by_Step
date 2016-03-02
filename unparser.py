@@ -50,7 +50,6 @@ class Unparser:
         self.newline()
         self.f.flush()
 
-
     def fill(self, text = ""):
         "Indent a piece of text, according to the current indentation level"
         self.f.write("\n"+"    "*self._indent + text)
@@ -283,7 +282,6 @@ class Unparser:
         self.dispatch(t.body)
 
     def _If(self, t):
-
         self.fill("If ")
         self.dispatch(t.test)
         self.write(", do the following")
@@ -305,8 +303,6 @@ class Unparser:
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
-
-
 
     def _While(self, t):
         '''
@@ -426,7 +422,7 @@ class Unparser:
                     "FloorDiv":"//", "Pow": "**"}
     '''
 
-    binop = { "Add":"adds", "Sub":"minus", "Mult":"times",
+    binop = { "Add":"plus", "Sub":"minus", "Mult":"times",
             "Div":"divided by", "Mod":"modulo",
                     "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
                     "FloorDiv":"floor divided by", "Pow": "to the power of"}
@@ -439,7 +435,7 @@ class Unparser:
         self.write(")")
 
     cmpops = {"Eq":"is equal to", "NotEq":"is not equal to", "Lt":"is smaller than", 
-    "LtE":"is smaller than or equals to", "Gt":"is larger than", 
+    "LtE":"is smaller than or equals to", "Gt":"is larger than",
     "GtE":"is greater than or equals to",
                         "Is":"is", "IsNot":"is not", "In":"in", "NotIn":"not in"}
     def _Compare(self, t):
@@ -633,8 +629,6 @@ def roundtrip(filename, output=sys.stdout):
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
     Unparser(tree, output)
 
-
-
 def testdir(a):
     try:
         names = [n for n in os.listdir(a) if n.endswith('.py')]
@@ -654,7 +648,6 @@ def testdir(a):
                 testdir(fullname)
 
 def main(args):
-    
     if args[0] == '--testdir':
         for a in args[1:]:
             testdir(a)
