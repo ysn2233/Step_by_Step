@@ -9,6 +9,7 @@ import sys
 import ast
 import cStringIO
 import os
+import json
 
 VARS = []
 
@@ -39,17 +40,25 @@ class Unparser:
     def __init__(self, tree, file = sys.stdout):
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
-        self.f = file
+        self.f = cStringIO.StringIO()
+        self.buf = []
         self.future_imports = []
         self._indent = 0
         self.dispatch(tree)
-        # self.write("")
-        self.newline()  # to surpress wired % sign
-        self.f.flush()
+        self.newline()
+        self.dump()
+
+    def dump(self):
+        """write buf to a json file"""
+        with open('foobar.json', 'w') as out:
+            json.dump(self.buf, out, indent=4)
+            out.write('\n')
 
     def newline(self):
-        """Write a newline"""
-        self.write("\n")
+        """BY WL: write a newline to screen"""
+        # self.f.write("\n")
+        self.buf.append(self.f.getvalue())
+        self.f = cStringIO.StringIO()
 
     def indent(self):
         """Write appropriate indentation"""
