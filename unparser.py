@@ -40,11 +40,11 @@ class Unparser:
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
         self.f = file
-        self.future_imports = []
         self.tree = tree
+        self.future_imports = []
+        self._indent = 0
 
     def run(self):
-        self._indent = 0
         self.dispatch(self.tree)
         self.newline()  # to surpress wired % sign
         self.f.flush()

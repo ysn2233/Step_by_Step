@@ -1,13 +1,18 @@
-This module tries to parse an input source program into an AST and
-unparse it back to either the original code or a human-readable
-description/instruction. Note that this may involve understanding the semantics
-of the input program.
+# Demo of unittest
+Make sure your `dev` branch is up-to-date. `test_factors` and `test_leave`
+methods in `test_unparser.py` have been implemented with comments, and can be
+modified/extended to handle other test cases as well.
 
-# Quick and dirty demo for unparsing `multiples.py`
 ```sh
-python unparse.py multiples.py
+λ> git checkout dev     # switch to dev branch
+λ> ./coverage.sh 
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.001s
+
+OK
+Name          Stmts   Miss Branch BrPart     Cover
+--------------------------------------------------
+unparser.py     413    218    150     23    42.98%
 ```
-
-To see the implementation details, you may try
-`git diff 625061b:unparser.py cc81106:unparser.py`.
-
+You can then open `htmlcov/index.html` to see a nice web output.

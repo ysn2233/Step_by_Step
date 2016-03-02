@@ -2,4 +2,3 @@
 *.swp
 .coverage
 htmlcov/
-sample_outputs/
