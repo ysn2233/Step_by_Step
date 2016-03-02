@@ -41,9 +41,11 @@ class Unparser:
          Print the source for tree to file."""
         self.f = file
         self.future_imports = []
+        self.tree = tree
+
+    def run(self):
         self._indent = 0
-        self.dispatch(tree)
-        # self.write("")
+        self.dispatch(self.tree)
         self.newline()  # to surpress wired % sign
         self.f.flush()
 
@@ -182,7 +184,7 @@ class Unparser:
     def _Print(self, t):
         self.no_direct_call = True
         self.indent()
-        self.write("print the result of ")
+        self.write("Print the result of ")
         do_comma = False
         for e in t.values:
             if do_comma: self.write(', ')
@@ -257,7 +259,7 @@ class Unparser:
 
     def _While(self, t):
         self.indent()
-        self.write("while ")
+        self.write("While ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -529,7 +531,7 @@ def roundtrip(filename, output=sys.stdout):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    Unparser(tree, output)
+    Unparser(tree, output).run()
 
 
 
