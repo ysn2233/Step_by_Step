@@ -1,9 +1,8 @@
 #!/bin/bash
-INDIR=unittest_inputs
-OUTDIR=unittest_outputs
+#INDIR=unittest_inputs
+#OUTDIR=unittest_outputs
 CONFIG=.unittest_coveragerc
 
-rm -rf $OUTDIR/*
 coverage erase --rcfile=$CONFIG
 rm -rf unittest_htmlcov/*
 
