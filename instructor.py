@@ -9,6 +9,7 @@ import sys
 import ast
 import cStringIO
 import os
+import json
 
 VARS = []
 
@@ -36,22 +37,28 @@ class Unparser:
 
     ###################
 
-    def __init__(self, tree, file = sys.stdout):
+    def __init__(self, tree):
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
-        self.f = file
+        self.instructions = []
+        self.buf = cStringIO.StringIO()
         self.tree = tree
         self.future_imports = []
         self._indent = 0
 
     def run(self):
+        """generate instructions"""
         self.dispatch(self.tree)
         self.newline()  # to surpress wired % sign
-        self.f.flush()
+        self.buf.flush()
+        return self.instructions
 
     def newline(self):
-        """Write a newline"""
-        self.write("\n")
+        """End current code/instruction block. Named for historical reason
+        since we started off with line by line translation.
+        """
+        self.instructions.append(self.buf.getvalue())
+        self.buf = cStringIO.StringIO()
 
     def indent(self):
         """Write appropriate indentation"""
@@ -59,7 +66,7 @@ class Unparser:
 
     def write(self, text):
         "Append a piece of text to the current line."
-        self.f.write(text)
+        self.buf.write(text)
 
     def enter(self):
         "Print ':', and increase the indentation."
@@ -527,40 +534,12 @@ class Unparser:
         if t.asname:
             self.write(" as "+t.asname)
 
-def roundtrip(filename, output=sys.stdout):
+def roundtrip(filename):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    Unparser(tree, output).run()
-
-
-
-def testdir(a):
-    try:
-        names = [n for n in os.listdir(a) if n.endswith('.py')]
-    except OSError:
-        sys.stderr.write("Directory not readable: %s" % a)
-    else:
-        for n in names:
-            fullname = os.path.join(a, n)
-            if os.path.isfile(fullname):
-                output = cStringIO.StringIO()
-                print 'Testing %s' % fullname
-                try:
-                    roundtrip(fullname, output)
-                except Exception as e:
-                    print '  Failed to compile, exception is %s' % repr(e)
-            elif os.path.isdir(fullname):
-                testdir(fullname)
-
-def main(args):
-    
-    if args[0] == '--testdir':
-        for a in args[1:]:
-            testdir(a)
-    else:
-        for a in args:
-            roundtrip(a)
+    for ins in Unparser(tree).run():
+        print ins
 
 if __name__=='__main__':
-    main(sys.argv[1:])
+    roundtrip(sys.argv[1])
