@@ -1,0 +1,2 @@
+(foo AND bar)
+(foo OR bar)

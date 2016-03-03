@@ -1,0 +1,9 @@
+the range from 0 to 5
+the range from 1 to 5
+the range from 1 to 5 with the step of 2
+Create and initialize variable 'a' to return value of function 'abs' with parameters of (-1)
+Print the result of return value of function 'abd' with parameters of (-1) to screen
+Call function 'input' with parameters of "What's your name? "
+Call function 'forward' on object 't' with parameters of 10
+Call function 'foo' without parameters
+Call function 'bar' with parameters of a, b=c, *d, **e

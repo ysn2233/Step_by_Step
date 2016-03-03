@@ -45,6 +45,7 @@ class Unparser:
         self.f = file
         self.future_imports = []
         self._indent = 0
+        self.first_line = True
         self.dispatch(tree)
         self.f.write("")
         self.newline()
@@ -52,7 +53,10 @@ class Unparser:
 
     def fill(self, text = ""):
         "Indent a piece of text, according to the current indentation level"
-        self.f.write("\n"+"    "*self._indent + text)
+        if not self.first_line:
+            self.f.write("\n")
+        self.f.write("    "*self._indent + text)
+        self.first_line = False
 
     def newline(self):
         """BY WL: write a newline to screen"""
@@ -106,7 +110,6 @@ class Unparser:
         self.fill("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
         self.write(" module")
-        print
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
@@ -134,8 +137,7 @@ class Unparser:
                     VARS.append(target.id)
                     Init = True
         if Init:
-            self.indent()
-            self.write("Create and initialize variable ")
+            self.fill("Create and initialize variable ")
             for target in t.targets:
                 self.write("\'")
                 self.dispatch(target)
@@ -145,17 +147,13 @@ class Unparser:
                 self.no_direct_call = True
             self.dispatch(t.value)
             self.no_direct_call = False
-            self.newline()
 
         else:
-            self.indent()
-            self.write("Assign ")
+            self.fill("Assign ")
             self.dispatch(t.value)
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
-            self.newline()
-
 
     def _AugAssign(self, t):
 
@@ -175,20 +173,19 @@ class Unparser:
         self.dispatch(t.value)
 
     def _Return(self, t):
-        self.fill("return")
+        self.fill("Return")
         if t.value:
             self.write(" ")
             self.dispatch(t.value)
-        self.newline()
 
     def _Break(self, t):
-        self.fill("break")
+        self.fill("Break")
 
     def _Continue(self, t):
-        self.fill("continue")
+        self.fill("Continue")
 
     def _Assert(self, t):
-        self.fill("assert ")
+        self.fill("Assert ")
         self.dispatch(t.test)
         if t.msg:
             self.write(", ")
@@ -208,9 +205,7 @@ class Unparser:
         # if not t.nl:
         #     self.write(",")
         self.no_direct_call = True
-        self.newline()  #FIXME
-        self.indent()
-        self.write("print the result of ")
+        self.fill("Print the result of ")
         do_comma = False
         for e in t.values:
             if do_comma: self.write(', ')
@@ -218,7 +213,6 @@ class Unparser:
             self.dispatch(e)
         self.write(" to screen")
         self.no_direct_call = False
-        self.newline()
 
     def _ClassDef(self, t):
         self.write("\n")
@@ -248,12 +242,11 @@ class Unparser:
         '''
         # Jack's implementation
         self.func_name = t.name
-        self.write("\n"+"Define a function called '" + t.name + "'")
-        self.write("\n" + "Set the input arguments to (")
+        self.fill("Define a function called '" + t.name + "'")
+        self.fill("Set the input arguments to (")
         self.dispatch(t.args)
         self.write(")")
         self.enter()
-        # self.newline()
         self.dispatch(t.body)
         self.func_name = " "
         self.leave()
@@ -272,14 +265,14 @@ class Unparser:
         #     self.dispatch(t.orelse)
         #     self.leave()
 
-        self.indent()
-        self.write("Iterate the variable ")
+        self.fill("Iterate the variable ")
         self.dispatch(t.target)
         self.write(" over ")
         self.dispatch(t.iter)
         self.write(", and do the following")
         self.enter()
         self.dispatch(t.body)
+        self.leave()
 
     def _If(self, t):
         self.fill("If ")
@@ -292,8 +285,9 @@ class Unparser:
         while (t.orelse and len(t.orelse) == 1 and
                isinstance(t.orelse[0], ast.If)):
             t = t.orelse[0]
-            self.fill("elif ")
+            self.fill("Else if ")
             self.dispatch(t.test)
+            self.write(", do the following")
             self.enter()
             self.dispatch(t.body)
             self.leave()
@@ -319,7 +313,7 @@ class Unparser:
         '''
         # Jack's implementation
 
-        self.fill("while ")
+        self.fill("While ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -399,6 +393,7 @@ class Unparser:
         self.write(")")
 
     unop = {"Invert":"~", "Not": "not", "UAdd":"+", "USub":"-"}
+
     def _UnaryOp(self, t):
         self.write("(")
         self.write(self.unop[t.op.__class__.__name__])
@@ -416,16 +411,10 @@ class Unparser:
             self.dispatch(t.operand)
         self.write(")")
 
-    '''
-    binop = { "Add":"+", "Sub":"-", "Mult":"*", "Div":"/", "Mod":"%",
-                    "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
-                    "FloorDiv":"//", "Pow": "**"}
-    '''
-
-    binop = { "Add":"plus", "Sub":"minus", "Mult":"times",
-            "Div":"divided by", "Mod":"modulo",
-                    "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
-                    "FloorDiv":"floor divided by", "Pow": "to the power of"}
+    binop = {"Add":"plus", "Sub":"minus", "Mult":"times", "Div":"over", "Mod":"modulo",
+             "LShift":"shifts left by", "RShift":"shifts right by",
+             "BitOr":"bitwise OR", "BitAnd":"bitwise AND", "BitXor":"bitwise XOR",
+             "FloorDiv":"floor over", "Pow": "to the power of"}
 
     def _BinOp(self, t):
         self.write("(")
@@ -434,10 +423,11 @@ class Unparser:
         self.dispatch(t.right)
         self.write(")")
 
-    cmpops = {"Eq":"is equal to", "NotEq":"is not equal to", "Lt":"is smaller than", 
-    "LtE":"is smaller than or equals to", "Gt":"is larger than",
-    "GtE":"is greater than or equals to",
-                        "Is":"is", "IsNot":"is not", "In":"in", "NotIn":"not in"}
+    cmpops = {"Eq":"is equal to", "NotEq":"is not equal to",
+              "Lt":"is less than", "LtE":"is less than or equal to",
+              "Gt":"is greater than", "GtE":"is greater than or equal to",
+              "Is":"is", "IsNot":"is not", "In":"is in", "NotIn":"is not in"}
+
     def _Compare(self, t):
         self.write("(")
         self.dispatch(t.left)
@@ -446,7 +436,8 @@ class Unparser:
             self.dispatch(e)
         self.write(")")
 
-    boolops = {ast.And: 'and', ast.Or: 'or'}
+    boolops = {ast.And: 'AND', ast.Or: 'OR'}
+
     def _BoolOp(self, t):
         self.write("(")
         s = " %s " % self.boolops[t.op.__class__]
@@ -454,10 +445,8 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write('\'' + t.attr + '\'')
-        global INFUNCTION
-        INFUNCTION = True
-        self.write(" on object '")
+        self.write("\'" + t.attr + "\'")
+        self.write(" on object \'")
         self.dispatch(t.value)
         self.write("\'")
         # self.dispatch(t.value)
@@ -470,39 +459,6 @@ class Unparser:
         #self.write(t.attr)
 
     def _Call(self, t):
-        """
-        # Jack's implementation
-        self.write("Call function ")
-        #
-        self.dispatch(t.func)
-        #
-        self.write(" with the following input arguments: ")
-        #
-        self.write("(")
-        comma = False
-        for e in t.args:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
-        for e in t.keywords:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
-        if t.starargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("*")
-            self.dispatch(t.starargs)
-        if t.kwargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("**")
-            self.dispatch(t.kwargs)
-        self.write(")")
-        # jack
-        self.newline()
-        """
-
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
             cnt = 0
@@ -527,7 +483,7 @@ class Unparser:
         # special requirement on range([start], stop[, step])sub
         if (self.no_direct_call == True):
             self.write ("return value of function ")
-            self.no_direct_cal = False;
+            # self.no_direct_call = False;
         else:
             self.write("Call function ")
         if isinstance(t.func, ast.Name):
@@ -537,13 +493,12 @@ class Unparser:
             self.write("'")
         if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
             self.write(" recursively")
-        # self.write("(")
         comma = False
         # handle cases of no parameters
         if not t.args:
-            self.write(" without parameter")
+            self.write(" without parameters")
         else:
-            self.write(" with parameter of ")
+            self.write(" with parameters of ")
         for e in t.args:
             if comma: self.write(", ")
             else: comma = True
@@ -562,8 +517,6 @@ class Unparser:
             else: comma = True
             self.write("**")
             self.dispatch(t.kwargs)
-        # self.write(")\n")
-        # self.write(")")
 
     def _Subscript(self, t):
         self.dispatch(t.value)

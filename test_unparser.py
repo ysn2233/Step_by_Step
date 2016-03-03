@@ -34,5 +34,20 @@ class TestUnparser(unittest.TestCase):
     def test_import(self):
         self.compare()
 
+    def test_binop(self):
+        self.compare()
+
+    def test_compare(self):
+        self.compare()
+
+    def test_boolop(self):
+        self.compare()
+
+    def test_call(self):
+        self.compare()
+
+    def test_subscript(self):
+        self.compare()
+
 if __name__ == '__main__':
     unittest.main()

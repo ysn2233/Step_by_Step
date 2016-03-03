@@ -1,0 +1,12 @@
+foo + 1
+bar - 1
+foo * 2
+bar / 2
+foo % bar
+foo << 4
+bar >> 4
+foo & 0x55
+bar | 0xAA
+foo ^ bar
+foo // 8
+bar ** 8
