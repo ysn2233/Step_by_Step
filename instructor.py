@@ -37,28 +37,28 @@ class Unparser:
 
     ###################
 
-    def __init__(self, tree, file = sys.stdout):
+    def __init__(self, tree):
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
-        self.f = cStringIO.StringIO()
-        self.buf = []
+        self.instructions = []
+        self.buf = cStringIO.StringIO()
+        self.tree = tree
         self.future_imports = []
         self._indent = 0
-        self.dispatch(tree)
-        self.newline()
-        self.dump(file)
 
-    def dump(self, outfile):
-        """write buf to a json file"""
-        # self.buf.pop(0)   # first item is always an empty line
-        json.dump(self.buf, outfile, indent=4)
-        outfile.write('\n')
+    def run(self):
+        """generate instructions"""
+        self.dispatch(self.tree)
+        self.newline()  # to surpress wired % sign
+        self.buf.flush()
+        return self.instructions
 
     def newline(self):
-        """BY WL: write a newline to screen"""
-        # self.f.write("\n")
-        self.buf.append(self.f.getvalue())
-        self.f = cStringIO.StringIO()
+        """End current code/instruction block. Named for historical reason
+        since we started off with line by line translation.
+        """
+        self.instructions.append(self.buf.getvalue())
+        self.buf = cStringIO.StringIO()
 
     def indent(self):
         """Write appropriate indentation"""
@@ -66,7 +66,7 @@ class Unparser:
 
     def write(self, text):
         "Append a piece of text to the current line."
-        self.f.write(text)
+        self.buf.write(text)
 
     def enter(self):
         "Print ':', and increase the indentation."
@@ -191,7 +191,7 @@ class Unparser:
     def _Print(self, t):
         self.no_direct_call = True
         self.indent()
-        self.write("print the result of ")
+        self.write("Print the result of ")
         do_comma = False
         for e in t.values:
             if do_comma: self.write(', ')
@@ -266,7 +266,7 @@ class Unparser:
 
     def _While(self, t):
         self.indent()
-        self.write("while ")
+        self.write("While ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
@@ -534,15 +534,11 @@ class Unparser:
         if t.asname:
             self.write(" as "+t.asname)
 
-def roundtrip(filename, output=sys.stdout):
+def roundtrip(filename):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
     Unparser(tree, output)
 
-def main(args):
-    for a in args:
-        roundtrip(a)
-
 if __name__=='__main__':
-    main(sys.argv[1:])
+    roundtrip(sys.argv[1])
