@@ -46,13 +46,13 @@ class Unparser:
         self._indent = 0
         self.dispatch(tree)
         self.newline()
-        self.dump()
+        self.dump(file)
 
-    def dump(self):
+    def dump(self, outfile):
         """write buf to a json file"""
-        with open('foobar.json', 'w') as out:
-            json.dump(self.buf, out, indent=4)
-            out.write('\n')
+        # self.buf.pop(0)   # first item is always an empty line
+        json.dump(self.buf, outfile, indent=4)
+        outfile.write('\n')
 
     def newline(self):
         """BY WL: write a newline to screen"""
@@ -540,34 +540,9 @@ def roundtrip(filename, output=sys.stdout):
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
     Unparser(tree, output)
 
-
-
-def testdir(a):
-    try:
-        names = [n for n in os.listdir(a) if n.endswith('.py')]
-    except OSError:
-        sys.stderr.write("Directory not readable: %s" % a)
-    else:
-        for n in names:
-            fullname = os.path.join(a, n)
-            if os.path.isfile(fullname):
-                output = cStringIO.StringIO()
-                print 'Testing %s' % fullname
-                try:
-                    roundtrip(fullname, output)
-                except Exception as e:
-                    print '  Failed to compile, exception is %s' % repr(e)
-            elif os.path.isdir(fullname):
-                testdir(fullname)
-
 def main(args):
-    
-    if args[0] == '--testdir':
-        for a in args[1:]:
-            testdir(a)
-    else:
-        for a in args:
-            roundtrip(a)
+    for a in args:
+        roundtrip(a)
 
 if __name__=='__main__':
     main(sys.argv[1:])
