@@ -4,7 +4,7 @@
 "Usage: test_unparser.py"
 import unittest
 import cStringIO
-import unparser
+import instructor
 
 PY_DIR = "unittest_inputs/"
 TXT_DIR = "unittest_outputs/"
@@ -19,7 +19,7 @@ class TestUnparser(unittest.TestCase):
     def setUp(self):
         py_filename = PY_DIR + self._testMethodName + ".py"
         buffer = cStringIO.StringIO()
-        unparser.roundtrip(py_filename, buffer)
+        instructor.roundtrip(py_filename, buffer)
         self.result = buffer.getvalue().splitlines(True)
 
         txt_filename = TXT_DIR + self._testMethodName + ".txt"

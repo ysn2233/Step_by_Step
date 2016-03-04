@@ -2,4 +2,3 @@
 *.swp
 .sample_coverage
 .unittest_coverage
-unparser.pyc

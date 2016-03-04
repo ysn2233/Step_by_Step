@@ -2,7 +2,7 @@
 [run]
 branch = True
 data_file = .unittest_coverage
-omit = test_unparser.py
+omit = test_instructor.py
 
 [report]
 precision = 2
