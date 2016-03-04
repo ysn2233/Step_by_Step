@@ -5,7 +5,7 @@ CONFIG=.sample_coveragerc
 
 rm -rf $OUTDIR/*
 coverage erase --rcfile=$CONFIG
-rm -rf sample_htmlcov/*
+rm -rf sample_htmlcov
 
 pyfile=`find $INDIR -name '*.py'`
 for pf in $pyfile

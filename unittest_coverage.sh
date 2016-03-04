@@ -4,7 +4,7 @@
 CONFIG=.unittest_coveragerc
 
 coverage erase --rcfile=$CONFIG
-rm -rf unittest_htmlcov/*
+rm -rf unittest_htmlcov
 
 coverage run --rcfile=$CONFIG -a test_instructor.py
 coverage report --rcfile=$CONFIG

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: test_unparser.py"
+"Usage: test_instructor.py"
 import unittest
 import cStringIO
 import instructor
@@ -9,10 +9,10 @@ import instructor
 PY_DIR = "unittest_inputs/"
 TXT_DIR = "unittest_outputs/"
 
-class TestUnparser(unittest.TestCase):
+class TestInstructor(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
-        super(TestUnparser, self).__init__(*args, **kwargs)
+        super(TestInstructor, self).__init__(*args, **kwargs)
         self.result = [];
         self.expect = [];
 
@@ -48,7 +48,6 @@ class TestUnparser(unittest.TestCase):
 
     def test_subscript(self):
         self.compare()
-
 
 if __name__ == '__main__':
     unittest.main()

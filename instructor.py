@@ -4,7 +4,7 @@
 # originally from official python source code
 # http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
 
-"Usage: unparse.py <path to source file>"
+"Usage: instructor.py <path to source file>"
 import sys
 import ast
 import cStringIO
@@ -38,8 +38,7 @@ class Unparser:
     ###################
 
     def __init__(self, tree):
-        """Unparser(tree, file=sys.stdout) -> None.
-         Print the source for tree to file."""
+        """Initialize instructor"""
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
@@ -216,7 +215,7 @@ class Unparser:
         self.func_name = t.name
         self.indent()
         self.write("Define a function called '" + t.name + "'")
-        self.write('\n')
+        self.write("\n")
         self.indent()
         self.write("Set the input arguments to (")
         self.dispatch(t.args)
@@ -532,10 +531,10 @@ def roundtrip(filename, output=sys.stdout):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    foobar = Unparser(tree).run()
-    for i in foobar:
+    instructions = Unparser(tree).run()
+    for i in instructions:
         output.write(i)
-        output.write('\n')
+        output.write("\n")
 
 if __name__=='__main__':
     roundtrip(sys.argv[1])

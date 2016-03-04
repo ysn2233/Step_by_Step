@@ -1,5 +1,7 @@
 *.pyc
 *.swp
 .sample_coverage
+sample_htmlcov
 .unittest_coverage
+unittest_htmlcov
 *.orig
