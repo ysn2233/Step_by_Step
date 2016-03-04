@@ -2,3 +2,4 @@
 *.swp
 .sample_coverage
 .unittest_coverage
+*.orig

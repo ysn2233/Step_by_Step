@@ -1,17 +1,12 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
-# originally from official python source code
-# http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
-
 "Usage: unparse.py <path to source file>"
 import sys
 import ast
 import cStringIO
 import os
-import json
 
-VARS = []
+# Large float and imaginary literals get turned into infinities in the AST.
+# We unparse those infinities to INFSTR.
+INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
 def interleave(inter, f, seq):
     """Call f on each item in seq, calling inter() in between.
@@ -31,42 +26,23 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    # member varibale (some flags to handle different cases)
-    func_name = " "
-    no_direct_call = False
-
-    ###################
-
-    def __init__(self, tree):
+    def __init__(self, tree, file = sys.stdout):
         """Unparser(tree, file=sys.stdout) -> None.
          Print the source for tree to file."""
-        self.instructions = []
-        self.buf = cStringIO.StringIO()
-        self.tree = tree
+        self.f = file
         self.future_imports = []
         self._indent = 0
+        self.dispatch(tree)
+        self.f.write("")
+        self.f.flush()
 
-    def run(self):
-        """generate instructions"""
-        self.dispatch(self.tree)
-        self.newline()  # to surpress wired % sign
-        self.buf.flush()
-        return self.instructions
-
-    def newline(self):
-        """End current code/instruction block. Named for historical reason
-        since we started off with line by line translation.
-        """
-        self.instructions.append(self.buf.getvalue())
-        self.buf = cStringIO.StringIO()
-
-    def indent(self):
-        """Write appropriate indentation"""
-        self.write("    " * self._indent)
+    def fill(self, text = ""):
+        "Indent a piece of text, according to the current indentation level"
+        self.f.write("\n"+"    "*self._indent + text)
 
     def write(self, text):
         "Append a piece of text to the current line."
-        self.buf.write(text)
+        self.f.write(text)
 
     def enter(self):
         "Print ':', and increase the indentation."
@@ -79,9 +55,6 @@ class Unparser:
 
     def dispatch(self, tree):
         "Dispatcher function, dispatching tree type T to method _T."
-        if isinstance(tree, ast.stmt):
-            self.newline()
-
         if isinstance(tree, list):
             for t in tree:
                 self.dispatch(t)
@@ -102,24 +75,20 @@ class Unparser:
             self.dispatch(stmt)
 
     # stmt
-
     def _Expr(self, tree):
-        self.indent()
+        self.fill()
         self.dispatch(tree.value)
 
     def _Import(self, t):
-        self.indent()
-        self.write("Import the ")
+        self.fill("import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
-        self.write(" module")
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
         if t.module and t.module == '__future__':
             self.future_imports.extend(n.name for n in t.names)
 
-        self.indent()
-        self.write("from ")
+        self.fill("from ")
         self.write("." * t.level)
         if t.module:
             self.write(t.module)
@@ -127,81 +96,138 @@ class Unparser:
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _Assign(self, t):
-        Init = False
-        if isinstance(t.targets[0], ast.Name):
-            for target in t.targets:
-                if not target.id in VARS:
-                    VARS.append(target.id)
-                    Init = True
-        if Init:
-            self.indent()
-            self.write("Create and initialize variable ")
-            for target in t.targets:
-                self.write("\'")
-                self.dispatch(target)
-                self.write("\'")
-            self.write(" to ")
-            if isinstance(t.value, ast.Call):
-                self.no_direct_call = True
-            self.dispatch(t.value)
-            self.no_direct_call = False
-
-        else:
-            self.indent()
-            self.write("Assign ")
-            self.dispatch(t.value)
-            self.write(" to variable ")
-            for target in t.targets:
-                self.dispatch(target)
+        self.fill()
+        for target in t.targets:
+            self.dispatch(target)
+            self.write(" = ")
+        self.dispatch(t.value)
 
     def _AugAssign(self, t):
-        # Jack's implementation
-        self.indent()
-        self.write("The new value of ")
+        self.fill()
         self.dispatch(t.target)
-        self.write(" is itself")
-        #self.dispatch(t.target)
-        self.write(" "+self.binop[t.op.__class__.__name__]+' ')
+        self.write(" "+self.binop[t.op.__class__.__name__]+"= ")
         self.dispatch(t.value)
 
     def _Return(self, t):
-        self.indent()
-        self.write("Return")
+        self.fill("return")
         if t.value:
             self.write(" ")
             self.dispatch(t.value)
 
+    def _Pass(self, t):
+        self.fill("pass")
+
     def _Break(self, t):
-        self.indent()
-        self.write("Break")
+        self.fill("break")
 
     def _Continue(self, t):
-        self.indent()
-        self.write("Continue")
+        self.fill("continue")
+
+    def _Delete(self, t):
+        self.fill("del ")
+        interleave(lambda: self.write(", "), self.dispatch, t.targets)
 
     def _Assert(self, t):
-        self.indent()
-        self.write("Assert ")
+        self.fill("assert ")
         self.dispatch(t.test)
         if t.msg:
             self.write(", ")
             self.dispatch(t.msg)
 
+    def _Exec(self, t):
+        self.fill("exec ")
+        self.dispatch(t.body)
+        if t.globals:
+            self.write(" in ")
+            self.dispatch(t.globals)
+        if t.locals:
+            self.write(", ")
+            self.dispatch(t.locals)
+
     def _Print(self, t):
-        self.no_direct_call = True
-        self.indent()
-        self.write("Print the result of ")
+        self.fill("print ")
         do_comma = False
+        if t.dest:
+            self.write(">>")
+            self.dispatch(t.dest)
+            do_comma = True
         for e in t.values:
-            if do_comma: self.write(', ')
-            else: do_comma = True
+            if do_comma:self.write(", ")
+            else:do_comma=True
             self.dispatch(e)
-        self.write(" to screen")
-        self.no_direct_call = False
+        if not t.nl:
+            self.write(",")
+
+    def _Global(self, t):
+        self.fill("global ")
+        interleave(lambda: self.write(", "), self.write, t.names)
+
+    def _Yield(self, t):
+        self.write("(")
+        self.write("yield")
+        if t.value:
+            self.write(" ")
+            self.dispatch(t.value)
+        self.write(")")
+
+    def _Raise(self, t):
+        self.fill('raise ')
+        if t.type:
+            self.dispatch(t.type)
+        if t.inst:
+            self.write(", ")
+            self.dispatch(t.inst)
+        if t.tback:
+            self.write(", ")
+            self.dispatch(t.tback)
+
+    def _TryExcept(self, t):
+        self.fill("try")
+        self.enter()
+        self.dispatch(t.body)
+        self.leave()
+
+        for ex in t.handlers:
+            self.dispatch(ex)
+        if t.orelse:
+            self.fill("else")
+            self.enter()
+            self.dispatch(t.orelse)
+            self.leave()
+
+    def _TryFinally(self, t):
+        if len(t.body) == 1 and isinstance(t.body[0], ast.TryExcept):
+            # try-except-finally
+            self.dispatch(t.body)
+        else:
+            self.fill("try")
+            self.enter()
+            self.dispatch(t.body)
+            self.leave()
+
+        self.fill("finally")
+        self.enter()
+        self.dispatch(t.finalbody)
+        self.leave()
+
+    def _ExceptHandler(self, t):
+        self.fill("except")
+        if t.type:
+            self.write(" ")
+            self.dispatch(t.type)
+        if t.name:
+            self.write(" as ")
+            self.dispatch(t.name)
+        self.enter()
+        self.dispatch(t.body)
+        self.leave()
 
     def _ClassDef(self, t):
-        self.indent()
-        self.write("class "+t.name)
+        self.write("\n")
+        for deco in t.decorator_list:
+            self.fill("@")
+            self.dispatch(deco)
+        self.fill("class "+t.name)
         if t.bases:
             self.write("(")
             for a in t.bases:
@@ -213,35 +239,34 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        self.func_name = t.name
-        self.indent()
-        self.write("Define a function called '" + t.name + "'")
-        self.write('\n')
-        self.indent()
-        self.write("Set the input arguments to (")
+        self.write("\n")
+        for deco in t.decorator_list:
+            self.fill("@")
+            self.dispatch(deco)
+        self.fill("def "+t.name + "(")
         self.dispatch(t.args)
         self.write(")")
         self.enter()
         self.dispatch(t.body)
-        self.func_name = " "
         self.leave()
 
     def _For(self, t):
-        self.indent()
-        self.write("Iterate the variable ")
+        self.fill("for ")
         self.dispatch(t.target)
-        self.write(" over ")
+        self.write(" in ")
         self.dispatch(t.iter)
-        self.write(", and do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
+        if t.orelse:
+            self.fill("else")
+            self.enter()
+            self.dispatch(t.orelse)
+            self.leave()
 
     def _If(self, t):
-        self.indent()
-        self.write("If ")
+        self.fill("if ")
         self.dispatch(t.test)
-        self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -249,26 +274,36 @@ class Unparser:
         while (t.orelse and len(t.orelse) == 1 and
                isinstance(t.orelse[0], ast.If)):
             t = t.orelse[0]
-            self.indent()
-            self.write("Else if ")
+            self.fill("elif ")
             self.dispatch(t.test)
-            self.write(", do the following")
             self.enter()
             self.dispatch(t.body)
             self.leave()
         # final else
         if t.orelse:
-            self.indent()
-            self.write("Else, do the following")
+            self.fill("else")
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
 
     def _While(self, t):
-        self.indent()
-        self.write("While ")
+        self.fill("while ")
         self.dispatch(t.test)
-        self.write(", do the following")
+        self.enter()
+        self.dispatch(t.body)
+        self.leave()
+        if t.orelse:
+            self.fill("else")
+            self.enter()
+            self.dispatch(t.orelse)
+            self.leave()
+
+    def _With(self, t):
+        self.fill("with ")
+        self.dispatch(t.context_expr)
+        if t.optional_vars:
+            self.write(" as ")
+            self.dispatch(t.optional_vars)
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -300,7 +335,8 @@ class Unparser:
         # Parenthesize negative numbers, to avoid turning (-1)**2 into -1**2.
         if repr_n.startswith("-"):
             self.write("(")
-        self.write(repr_n)
+        # Substitute overflowing decimal literal for AST infinities.
+        self.write(repr_n.replace("inf", INFSTR))
         if repr_n.startswith("-"):
             self.write(")")
 
@@ -308,6 +344,45 @@ class Unparser:
         self.write("[")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("]")
+
+    def _ListComp(self, t):
+        self.write("[")
+        self.dispatch(t.elt)
+        for gen in t.generators:
+            self.dispatch(gen)
+        self.write("]")
+
+    def _GeneratorExp(self, t):
+        self.write("(")
+        self.dispatch(t.elt)
+        for gen in t.generators:
+            self.dispatch(gen)
+        self.write(")")
+
+    def _SetComp(self, t):
+        self.write("{")
+        self.dispatch(t.elt)
+        for gen in t.generators:
+            self.dispatch(gen)
+        self.write("}")
+
+    def _DictComp(self, t):
+        self.write("{")
+        self.dispatch(t.key)
+        self.write(": ")
+        self.dispatch(t.value)
+        for gen in t.generators:
+            self.dispatch(gen)
+        self.write("}")
+
+    def _comprehension(self, t):
+        self.write(" for ")
+        self.dispatch(t.target)
+        self.write(" in ")
+        self.dispatch(t.iter)
+        for if_clause in t.ifs:
+            self.write(" if ")
+            self.dispatch(if_clause)
 
     def _IfExp(self, t):
         self.write("(")
@@ -345,7 +420,6 @@ class Unparser:
         self.write(")")
 
     unop = {"Invert":"~", "Not": "not", "UAdd":"+", "USub":"-"}
-
     def _UnaryOp(self, t):
         self.write("(")
         self.write(self.unop[t.op.__class__.__name__])
@@ -363,11 +437,9 @@ class Unparser:
             self.dispatch(t.operand)
         self.write(")")
 
-    binop = {"Add":"plus", "Sub":"minus", "Mult":"times", "Div":"over", "Mod":"modulo",
-             "LShift":"shifts left by", "RShift":"shifts right by",
-             "BitOr":"bitwise OR", "BitAnd":"bitwise AND", "BitXor":"bitwise XOR",
-             "FloorDiv":"floor over", "Pow": "to the power of"}
-
+    binop = { "Add":"+", "Sub":"-", "Mult":"*", "Div":"/", "Mod":"%",
+                    "LShift":"<<", "RShift":">>", "BitOr":"|", "BitXor":"^", "BitAnd":"&",
+                    "FloorDiv":"//", "Pow": "**"}
     def _BinOp(self, t):
         self.write("(")
         self.dispatch(t.left)
@@ -375,11 +447,8 @@ class Unparser:
         self.dispatch(t.right)
         self.write(")")
 
-    cmpops = {"Eq":"is equal to", "NotEq":"is not equal to",
-              "Lt":"is less than", "LtE":"is less than or equal to",
-              "Gt":"is greater than", "GtE":"is greater than or equal to",
-              "Is":"is", "IsNot":"is not", "In":"is in", "NotIn":"is not in"}
-
+    cmpops = {"Eq":"==", "NotEq":"!=", "Lt":"<", "LtE":"<=", "Gt":">", "GtE":">=",
+                        "Is":"is", "IsNot":"is not", "In":"in", "NotIn":"not in"}
     def _Compare(self, t):
         self.write("(")
         self.dispatch(t.left)
@@ -388,8 +457,7 @@ class Unparser:
             self.dispatch(e)
         self.write(")")
 
-    boolops = {ast.And: 'AND', ast.Or: 'OR'}
-
+    boolops = {ast.And: 'and', ast.Or: 'or'}
     def _BoolOp(self, t):
         self.write("(")
         s = " %s " % self.boolops[t.op.__class__]
@@ -397,60 +465,19 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write("\'" + t.attr + "\'")
-        self.write(" on object \'")
         self.dispatch(t.value)
-        self.write("\'")
-        # self.dispatch(t.value)
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
         # it or add an extra space to get 3 .__abs__().
         if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
             self.write(" ")
-        #self.write(".")
-        #self.write(t.attr)
+        self.write(".")
+        self.write(t.attr)
 
     def _Call(self, t):
-        # special requirement on range([start], stop[, step])
-        if isinstance(t.func, ast.Name) and t.func.id == "range":
-            cnt = 0
-            for e in t.args:
-                cnt += 1
-            if cnt == 1:
-                self.write("the range from 0 to ")
-                self.dispatch(t.args[0])
-            elif cnt == 2:
-                self.write("the range from ")
-                self.dispatch(t.args[0])
-                self.write(" to ")
-                self.dispatch(t.args[1])
-            else:
-                self.write("the range from ")
-                self.dispatch(t.args[0])
-                self.write(" to ")
-                self.dispatch(t.args[1])
-                self.write(" with the step of ")
-                self.dispatch(t.args[2])
-            return
-        # special requirement on range([start], stop[, step])sub
-        if (self.no_direct_call == True):
-            self.write ("return value of function ")
-            # self.no_direct_call = False;
-        else:
-            self.write("Call function ")
-        if isinstance(t.func, ast.Name):
-            self.write("'")
         self.dispatch(t.func)
-        if isinstance(t.func, ast.Name):
-            self.write("'")
-        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-            self.write(" recursively")
+        self.write("(")
         comma = False
-        # handle cases of no parameters
-        if not t.args:
-            self.write(" without parameters")
-        else:
-            self.write(" with parameters of ")
         for e in t.args:
             if comma: self.write(", ")
             else: comma = True
@@ -469,12 +496,17 @@ class Unparser:
             else: comma = True
             self.write("**")
             self.dispatch(t.kwargs)
+        self.write(")")
 
     def _Subscript(self, t):
         self.dispatch(t.value)
         self.write("[")
         self.dispatch(t.slice)
         self.write("]")
+
+    # slice
+    def _Ellipsis(self, t):
+        self.write("...")
 
     def _Index(self, t):
         self.dispatch(t.value)
@@ -523,6 +555,14 @@ class Unparser:
         self.write("=")
         self.dispatch(t.value)
 
+    def _Lambda(self, t):
+        self.write("(")
+        self.write("lambda ")
+        self.dispatch(t.args)
+        self.write(": ")
+        self.dispatch(t.body)
+        self.write(")")
+
     def _alias(self, t):
         self.write(t.name)
         if t.asname:
@@ -532,10 +572,35 @@ def roundtrip(filename, output=sys.stdout):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    foobar = Unparser(tree).run()
-    for i in foobar:
-        output.write(i)
-        output.write('\n')
+    Unparser(tree, output)
+
+
+
+def testdir(a):
+    try:
+        names = [n for n in os.listdir(a) if n.endswith('.py')]
+    except OSError:
+        sys.stderr.write("Directory not readable: %s" % a)
+    else:
+        for n in names:
+            fullname = os.path.join(a, n)
+            if os.path.isfile(fullname):
+                output = cStringIO.StringIO()
+                print 'Testing %s' % fullname
+                try:
+                    roundtrip(fullname, output)
+                except Exception as e:
+                    print '  Failed to compile, exception is %s' % repr(e)
+            elif os.path.isdir(fullname):
+                testdir(fullname)
+
+def main(args):
+    if args[0] == '--testdir':
+        for a in args[1:]:
+            testdir(a)
+    else:
+        for a in args:
+            roundtrip(a)
 
 if __name__=='__main__':
-    roundtrip(sys.argv[1])
+    main(sys.argv[1:])

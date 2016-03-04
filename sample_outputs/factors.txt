@@ -1,0 +1,12 @@
+
+Define a function called 'factors'
+Set the input arguments to (number, name):
+    Create and initialize variable 'factor' to (number subtracts 1)
+    While (factor is larger than 1), do the following:
+        If ((number modulo factor) is equal to 0), do the following:
+            Call function 'factors' recursively with parameter of (number floor divided by factor)
+            Call function 'factors' recursively with parameter of factor
+            return
+        The new value of factor is itself subtracts 1
+    Print the result of number to screen
+Call function 'factors' with parameter of 144
