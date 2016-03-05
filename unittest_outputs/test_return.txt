@@ -1,0 +1,4 @@
+
+Define a function called 'increment'
+Set the input arguments to (num):
+    Return (num plus 1)
