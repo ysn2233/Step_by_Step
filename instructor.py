@@ -110,7 +110,6 @@ class Unparser:
         self.indent()
         self.write("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
-        self.write(" module")
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
@@ -524,6 +523,7 @@ class Unparser:
 
     def _alias(self, t):
         self.write(t.name)
+        self.write(" module")
         if t.asname:
             self.write(" as "+t.asname)
 
