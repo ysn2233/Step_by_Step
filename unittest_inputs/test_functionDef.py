@@ -1,2 +1,2 @@
-def sayHi(num):
-    print("Hi")
+def sayHi(num, text="Hi"):
+    print(text)

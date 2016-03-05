@@ -1,4 +1,4 @@
 
 Define a function called 'sayHi'
-Set the input arguments to (num):
-    Print the result of 'Hi' to screen
+Set the input arguments to (num, text with default value 'Hi'):
+    Print the result of text to screen

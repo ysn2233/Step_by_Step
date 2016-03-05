@@ -509,21 +509,8 @@ class Unparser:
             else: self.write(", ")
             self.dispatch(a),
             if d:
-                self.write("=")
+                self.write(" with default value ")
                 self.dispatch(d)
-
-        # varargs
-        if t.vararg:
-            if first:first = False
-            else: self.write(", ")
-            self.write("*")
-            self.write(t.vararg)
-
-        # kwargs
-        if t.kwarg:
-            if first:first = False
-            else: self.write(", ")
-            self.write("**"+t.kwarg)
 
     def _keyword(self, t):
         self.write(t.arg)
