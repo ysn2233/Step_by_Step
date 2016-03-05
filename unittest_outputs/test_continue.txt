@@ -1,0 +1,7 @@
+
+Create and initialize variable 'var' to 10
+While (var is greater than 0), do the following:
+    Assign (var minus 1) to variable var
+    If (var is equal to 5), do the following:
+        Skip the rest of the code inside the loop and continue on with the next iteration
+

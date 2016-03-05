@@ -33,6 +33,21 @@ class TestInstructor(unittest.TestCase):
 
     def test_import(self):
         self.compare()
+    
+    def test_break(self):
+        self.compare()
+    
+    def test_continue(self):
+        self.compare()
+    
+    def test_assert(self):
+        self.compare()
+    
+    def test_print(self):
+        self.compare()
+    
+    def test_classDef(self):
+        self.compare()
 
     def test_functionDef(self):
         self.compare()

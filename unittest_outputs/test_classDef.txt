@@ -1,0 +1,17 @@
+
+Define a class called 'A':
+    Define a function called 'm'
+    Set the input arguments to (self):
+        Print the result of 'm of A called' to screen
+Define a class called 'B', which inherits from A:
+    Define a function called 'm'
+    Set the input arguments to (self):
+        Print the result of 'm of B called' to screen
+Define a class called 'C', which inherits from A:
+    Define a function called 'm'
+    Set the input arguments to (self):
+        Print the result of 'm of C called' to screen
+Define a class called 'D', which inherits from B, C:
+    Define a function called 'm'
+    Set the input arguments to (self):
+        Print the result of 'm of D called' to screen

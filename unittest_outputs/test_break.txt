@@ -1,0 +1,5 @@
+
+Iterate the variable letter over 'Python', and do the following:
+    If (letter is equal to 'h'), do the following:
+        Break out of the current loop
+

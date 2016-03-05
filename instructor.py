@@ -214,7 +214,7 @@ class Unparser:
         # self.write(")")
         self.enter()
         self.dispatch(t.body)
-    self.leave()
+        self.leave()
 
     def _FunctionDef(self, t):
         self.func_name = t.name
