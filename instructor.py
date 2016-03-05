@@ -304,7 +304,7 @@ class Unparser:
             self.write(")")
 
     def _List(self, t):
-        self.write("[")
+        self.write("list [")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("]")
 
@@ -319,12 +319,12 @@ class Unparser:
 
     def _Set(self, t):
         assert(t.elts) # should be at least one element
-        self.write("{")
+        self.write("set {")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("}")
 
     def _Dict(self, t):
-        self.write("{")
+        self.write("dictionary {")
         def write_pair(pair):
             (k, v) = pair
             self.dispatch(k)
@@ -334,7 +334,7 @@ class Unparser:
         self.write("}")
 
     def _Tuple(self, t):
-        self.write("(")
+        self.write("tuple (")
         if len(t.elts) == 1:
             (elt,) = t.elts
             self.dispatch(elt)
