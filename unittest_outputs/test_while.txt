@@ -1,0 +1,4 @@
+
+While (a is less than 5), do the following:
+    Print the result of a to screen
+    The new value of a is itself minus 1

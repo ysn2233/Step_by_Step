@@ -1,0 +1,4 @@
+
+Define a function called 'sayHi'
+Set the input arguments to (num):
+    Print the result of 'Hi' to screen

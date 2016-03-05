@@ -1,0 +1,8 @@
+
+If a, do the following:
+    Print the result of 'hi' to screen
+Else if b, do the following:
+    Print the result of 'hello' to screen
+Else, do the following:
+    Print the result of 'bye' to screen
+

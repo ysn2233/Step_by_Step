@@ -243,6 +243,7 @@ class Unparser:
         self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
+        self.newline()
         self.leave()
         # collapse nested ifs into equivalent elifs.
         while (t.orelse and len(t.orelse) == 1 and
@@ -254,6 +255,7 @@ class Unparser:
             self.write(", do the following")
             self.enter()
             self.dispatch(t.body)
+            self.newline()
             self.leave()
         # final else
         if t.orelse:
@@ -261,6 +263,7 @@ class Unparser:
             self.write("Else, do the following")
             self.enter()
             self.dispatch(t.orelse)
+            self.newline()
             self.leave()
 
     def _While(self, t):
