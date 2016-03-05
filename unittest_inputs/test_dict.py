@@ -1,1 +1,1 @@
-dict = { "a" : "apple", "b" : "banana", "g" : "grape", "o" : "orange"}
+{ "a" : "apple", "b" : "banana", "g" : "grape", "o" : "orange"}

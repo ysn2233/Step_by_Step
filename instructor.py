@@ -348,7 +348,7 @@ class Unparser:
     def _UnaryOp(self, t):
         self.write("(")
         self.write(self.unop[t.op.__class__.__name__])
-        self.write(" ")
+        # self.write(" ")
         # If we're applying unary minus to a number, parenthesize the number.
         # This is necessary: -2147483648 is different from -(2147483648) on
         # a 32-bit machine (the first is an int, the second a long), and

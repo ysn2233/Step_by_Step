@@ -7,5 +7,5 @@
 (bar is greater than or equal to 1)
 (foo is bar)
 (bar is not foo)
-(foo is in [1, 2, 3])
-(bar is not in [1, 2, 3])
+(foo is in list [1, 2, 3])
+(bar is not in list [1, 2, 3])

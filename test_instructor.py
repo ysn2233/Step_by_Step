@@ -33,7 +33,28 @@ class TestInstructor(unittest.TestCase):
 
     def test_import(self):
         self.compare()
+    
+    def test_num(self):
+        self.compare()
 
+    def test_list(self):
+        self.compare()
+    
+    def test_ifexp(self):
+        self.compare()
+    
+    def test_set(self):
+        self.compare()
+    
+    def test_dict(self):
+        self.compare()
+    
+    def test_tuple(self):
+        self.compare()
+    
+    def test_unaryop(self):
+        self.compare()
+    
     def test_binop(self):
         self.compare()
 

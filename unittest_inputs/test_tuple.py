@@ -1,1 +1,1 @@
-tup1 = ('physics', 'chemistry', 1997, 2000)
+('physics', 'chemistry', 1997, 2000)
