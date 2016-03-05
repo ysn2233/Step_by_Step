@@ -171,18 +171,21 @@ class Unparser:
 
     def _Break(self, t):
         self.indent()
-        self.write("Break")
+        self.write("Break out of the current loop")
 
     def _Continue(self, t):
         self.indent()
-        self.write("Continue")
+        self.write("Skip the rest of the code inside the loop and continue on with the next iteration")
 
     def _Assert(self, t):
         self.indent()
-        self.write("Assert ")
+        # self.write("Assert ")
+        self.write("Check the condition of ")
         self.dispatch(t.test)
+        self.write(" and if it is not ture, throw an exception ")
         if t.msg:
-            self.write(", ")
+            # self.write(", ")
+            self.write("with the message ")
             self.dispatch(t.msg)
 
     def _Print(self, t):
@@ -199,16 +202,19 @@ class Unparser:
 
     def _ClassDef(self, t):
         self.indent()
-        self.write("class "+t.name)
+        self.write("Define a class called '" + t.name + "'")
+        do_comma = False
         if t.bases:
-            self.write("(")
+            # self.write("(")
+            self.write(", which inherits from ")
             for a in t.bases:
+                if do_comma: self.write(", ")
+                else: do_comma = True
                 self.dispatch(a)
-                self.write(", ")
-            self.write(")")
+        # self.write(")")
         self.enter()
         self.dispatch(t.body)
-        self.leave()
+    self.leave()
 
     def _FunctionDef(self, t):
         self.func_name = t.name
