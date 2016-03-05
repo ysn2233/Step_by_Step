@@ -487,6 +487,7 @@ class Unparser:
         self.dispatch(t.value)
 
     def _Slice(self, t):
+        # NOTE: no human readable instruction generated here
         if t.lower:
             self.dispatch(t.lower)
         self.write(":")
