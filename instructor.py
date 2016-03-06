@@ -11,7 +11,6 @@ import cStringIO
 import os
 import json
 
-VARS = []
 
 def interleave(inter, f, seq):
     """Call f on each item in seq, calling inter() in between.
@@ -32,8 +31,6 @@ class Unparser:
     is disregarded. """
 
     # member varibale (some flags to handle different cases)
-    func_name = " "
-    no_direct_call = False
 
     ###################
 
@@ -44,6 +41,10 @@ class Unparser:
         self.tree = tree
         self.future_imports = []
         self._indent = 0
+        self.variables = []
+        self.func_name = " "
+        self.no_direct_call = False
+        self.import_module = False
 
     def run(self):
         """generate instructions"""
@@ -107,20 +108,23 @@ class Unparser:
         self.dispatch(tree.value)
 
     def _Import(self, t):
+    	self.import_module = True
         self.indent()
         self.write("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
+        self.import_module = False
         if t.module and t.module == '__future__':
             self.future_imports.extend(n.name for n in t.names)
 
         self.indent()
-        self.write("from ")
+        self.write("From the ")
         self.write("." * t.level)
         if t.module:
             self.write(t.module)
+            self.write(" module")
         self.write(" import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
@@ -128,8 +132,8 @@ class Unparser:
         Init = False
         if isinstance(t.targets[0], ast.Name):
             for target in t.targets:
-                if not target.id in VARS:
-                    VARS.append(target.id)
+                if not target.id in self.variables:
+                    self.variables.append(target.id)
                     Init = True
         if Init:
             self.indent()
@@ -364,7 +368,10 @@ class Unparser:
         # a 32-bit machine (the first is an int, the second a long), and
         # -7j is different from -(7j).  (The first has real part 0.0, the second
         # has real part -0.0.)
-        if isinstance(t.op, ast.USub) and isinstance(t.operand, ast.Num):
+        if isinstance(t.op, ast.Not):
+            self.write(" ")
+            self.dispatch(t.operand)
+        elif isinstance(t.op, ast.USub) and isinstance(t.operand, ast.Num):
             self.write("(")
             self.dispatch(t.operand)
             self.write(")")
@@ -414,8 +421,8 @@ class Unparser:
         # Special case: 3.__abs__() is a syntax error, so if t.value
         # is an integer literal then we need to either parenthesize
         # it or add an extra space to get 3 .__abs__().
-        if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
-            self.write(" ")
+        # if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
+        #     self.write(" ")
         #self.write(".")
         #self.write(t.attr)
 
@@ -468,16 +475,6 @@ class Unparser:
             if comma: self.write(", ")
             else: comma = True
             self.dispatch(e)
-        if t.starargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("*")
-            self.dispatch(t.starargs)
-        if t.kwargs:
-            if comma: self.write(", ")
-            else: comma = True
-            self.write("**")
-            self.dispatch(t.kwargs)
 
     def _Subscript(self, t):
         self.dispatch(t.value)
@@ -522,7 +519,8 @@ class Unparser:
 
     def _alias(self, t):
         self.write(t.name)
-        self.write(" module")
+        if self.import_module:
+            self.write(" module")
         if t.asname:
             self.write(" as "+t.asname)
 

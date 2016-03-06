@@ -2,3 +2,4 @@
 Define a function called 'sayHi'
 Set the input arguments to (num, text with default value 'Hi'):
     Print the result of text to screen
+    Call function 'sayHi' recursively with parameters of 1, 'Hi'

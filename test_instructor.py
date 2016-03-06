@@ -34,6 +34,9 @@ class TestInstructor(unittest.TestCase):
     def test_import(self):
         self.compare()
 
+    def test_importfrom(self):
+        self.compare()
+
     def test_assign(self):
         self.compare()
     
