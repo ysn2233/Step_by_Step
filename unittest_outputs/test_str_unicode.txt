@@ -1,5 +1,5 @@
 
-from __future__ import unicode_literals module
+From the __future__ module import unicode_literals
 'unicode string in python3'
 'explicit unicode string'
 b'bytes literal string in python3'
