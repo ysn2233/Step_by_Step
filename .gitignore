@@ -5,3 +5,4 @@ sample_htmlcov
 .unittest_coverage
 unittest_htmlcov
 *.orig
+.coverage
