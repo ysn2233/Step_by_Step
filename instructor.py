@@ -288,8 +288,10 @@ class Unparser:
         if "unicode_literals" not in self.future_imports:
             self.write(repr(tree.s))
         elif isinstance(tree.s, str):
+            print '='*30
             self.write("b" + repr(tree.s))
         elif isinstance(tree.s, unicode):
+            print '-'*30
             self.write(repr(tree.s).lstrip("u"))
         else:
             assert False, "shouldn't get here"

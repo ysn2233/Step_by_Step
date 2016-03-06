@@ -106,5 +106,11 @@ class TestInstructor(unittest.TestCase):
     def test_subscript(self):
         self.compare()
 
+    def test_str(self):
+        self.compare()
+
+    def test_str_unicode(self):
+        self.compare()
+
 if __name__ == '__main__':
     unittest.main()
