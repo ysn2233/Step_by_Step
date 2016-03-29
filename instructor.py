@@ -11,6 +11,7 @@ import cStringIO
 import os
 import json
 
+dict = {}
 
 def interleave(inter, f, seq):
     """Call f on each item in seq, calling inter() in between.
@@ -108,6 +109,11 @@ class Unparser:
         self.dispatch(tree.value)
 
     def _Import(self, t):
+        if dict.has_key('Import'):
+            dict['Import'] = dict['Import'] + 1
+        else:
+            dict['Import'] = 1
+
     	self.import_module = True
         self.indent()
         self.write("Import the ")
@@ -136,6 +142,11 @@ class Unparser:
                     self.variables.append(target.id)
                     Init = True
         if Init:
+            if dict.has_key('Variable'):
+                dict['Variable'] = dict['Variable'] + 1
+            else:
+                dict['Variable'] = 1
+
             self.indent()
             self.write("Create and initialize variable ")
             for target in t.targets:
@@ -174,14 +185,29 @@ class Unparser:
             self.dispatch(t.value)
 
     def _Break(self, t):
+        if dict.has_key('Break'):
+            dict['Break'] = dict['Break'] + 1
+        else:
+            dict['Break'] = 1
+
         self.indent()
         self.write("Break out of the current loop")
 
     def _Continue(self, t):
+        if dict.has_key('Continue'):
+            dict['Continue'] = dict['Continue'] + 1
+        else:
+            dict['Continue'] = 1
+
         self.indent()
         self.write("Skip the rest of the code inside the loop and continue on with the next iteration")
 
     def _Assert(self, t):
+        if dict.has_key('Assert'):
+            dict['Assert'] = dict['Assert'] + 1
+        else:
+            dict['Assert'] = 1
+
         self.indent()
         # self.write("Assert ")
         self.write("Check the condition of ")
@@ -193,6 +219,11 @@ class Unparser:
             self.dispatch(t.msg)
 
     def _Print(self, t):
+        if dict.has_key('Print'):
+            dict['Print'] = dict['Print'] + 1
+        else:
+            dict['Print'] = 1
+
         self.no_direct_call = True
         self.indent()
         self.write("Print the result of ")
@@ -205,11 +236,22 @@ class Unparser:
         self.no_direct_call = False
 
     def _ClassDef(self, t):
+        if dict.has_key('ClassDef'):
+            dict['ClassDef'] = dict['ClassDef'] + 1
+        else:
+            dict['ClassDef'] = 1
+
         self.indent()
         self.write("Define a class called '" + t.name + "'")
         do_comma = False
         if t.bases:
             # self.write("(")
+
+            if dict.has_key('ClassDef_inherit'):
+                dict['ClassDef_inherit'] = dict['ClassDef_inherit'] + 1
+            else:
+                dict['ClassDef_inherit'] = 1
+
             self.write(", which inherits from ")
             for a in t.bases:
                 if do_comma: self.write(", ")
@@ -221,6 +263,11 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
+        if dict.has_key('FunctionDef'):
+            dict['FunctionDef'] = dict['FunctionDef'] + 1
+        else:
+            dict['FunctionDef'] = 1
+
         self.func_name = t.name
         self.indent()
         self.write("Define a function called '" + t.name + "'")
@@ -235,6 +282,11 @@ class Unparser:
         self.leave()
 
     def _For(self, t):
+        if dict.has_key('For'):
+            dict['For'] = dict['For'] + 1
+        else:
+            dict['For'] = 1
+
         self.indent()
         self.write("Iterate the variable ")
         self.dispatch(t.target)
@@ -246,6 +298,10 @@ class Unparser:
         self.leave()
 
     def _If(self, t):
+        if dict.has_key('If'):
+            dict['If'] = dict['If'] + 1
+        else:
+            dict['If'] = 1
         self.indent()
         self.write("If ")
         self.dispatch(t.test)
@@ -276,6 +332,11 @@ class Unparser:
             self.leave()
 
     def _While(self, t):
+        if dict.has_key('While'):
+            dict['While'] = dict['While'] + 1
+        else:
+            dict['While'] = 1
+
         self.indent()
         self.write("While ")
         self.dispatch(t.test)
@@ -318,6 +379,11 @@ class Unparser:
             self.write(")")
 
     def _List(self, t):
+        if dict.has_key('List'):
+            dict['List'] = dict['List'] + 1
+        else:
+            dict['List'] = 1
+
         self.write("list [")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("]")
@@ -332,12 +398,22 @@ class Unparser:
         self.write(")")
 
     def _Set(self, t):
+        if dict.has_key('Set'):
+            dict['Set'] = dict['Set'] + 1
+        else:
+            dict['Set'] = 1
+
         assert(t.elts) # should be at least one element
         self.write("set {")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("}")
 
     def _Dict(self, t):
+        if dict.has_key('Dict'):
+            dict['Dict'] = dict['Dict'] + 1
+        else:
+            dict['Dict'] = 1
+
         self.write("dictionary {")
         def write_pair(pair):
             (k, v) = pair
@@ -348,6 +424,11 @@ class Unparser:
         self.write("}")
 
     def _Tuple(self, t):
+        if dict.has_key('Tuple'):
+            dict['Tuple'] = dict['Tuple'] + 1
+        else:
+            dict['Tuple'] = 1
+
         self.write("tuple (")
         if len(t.elts) == 1:
             (elt,) = t.elts
@@ -535,3 +616,8 @@ def roundtrip(filename, output=sys.stdout):
 
 if __name__=='__main__':
     roundtrip(sys.argv[1])
+
+    print('-------------------\n')
+    for i in dict:
+        print i, dict[i]
+

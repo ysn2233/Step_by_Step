@@ -5,7 +5,7 @@ def factors(number, name):
             factors(number//factor)
             factors(factor)
             return
-        factor -= 1
+        factor += 1
     print(number)
 
 factors(144)
