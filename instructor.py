@@ -10,6 +10,7 @@ import ast
 import cStringIO
 import os
 import json
+import networkx
 
 dict = {}
 
@@ -46,20 +47,28 @@ class Unparser:
         self.func_name = " "
         self.no_direct_call = False
         self.import_module = False
+        self.dep_graph = networkx.DiGraph()
+        self.dist_group = [["default"]]
+        self.buf_list = {"default": self.buf}
+        self.curr_def = "default"
+        self.main_cnt = 0
+        self.buf_rst = False
 
     def run(self):
         """generate instructions"""
         self.dispatch(self.tree)
-        self.newline()  # to surpress wired % sign
-        self.buf.flush()
+        self.group()
+        self.flush()
         return self.instructions
 
     def newline(self):
         """End current code/instruction block. Named for historical reason
         since we started off with line by line translation.
         """
-        self.instructions.append(self.buf.getvalue())
-        self.buf = cStringIO.StringIO()
+        self.write("\n")
+        if self.buf_rst:
+            self.buf = self.buf_list["default"]
+            self.buf_rst = False
 
     def indent(self):
         """Write appropriate indentation"""
@@ -90,6 +99,29 @@ class Unparser:
         meth = getattr(self, "_"+tree.__class__.__name__)
         meth(tree)
 
+    def group(self):
+        bfse = networkx.bfs_edges(self.dep_graph, "default")
+        dist = {"default": 0}
+        for edge in bfse:
+            if not self.buf_list.has_key(edge[1]):
+                continue
+            dist[edge[1]] = dist[edge[0]] + 1
+            if dist[edge[1]] >= len(self.dist_group):
+                self.dist_group.append([edge[1]])
+            else:
+                self.dist_group[dist[edge[1]]].append(edge[1])
+
+    def flush(self):
+        # Top-down structure
+        # for group in self.dist_group:
+        #     for func in group:
+        #         self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+
+        # Bottom-up structure
+        self.instructions.extend(self.buf_list["default"].getvalue().split("\n")[:-1])
+        for group in self.dist_group[:0:-1]:
+            for func in group:
+                self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
 
     ############### Unparsing methods ######################
     # There should be one method per concrete grammar type #
@@ -114,7 +146,7 @@ class Unparser:
         else:
             dict['Import'] = 1
 
-    	self.import_module = True
+        self.import_module = True
         self.indent()
         self.write("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
@@ -173,7 +205,7 @@ class Unparser:
         self.write("The new value of ")
         self.dispatch(t.target)
         self.write(" is itself")
-        #self.dispatch(t.target)
+        # self.dispatch(t.target)
         self.write(" "+self.binop[t.op.__class__.__name__]+' ')
         self.dispatch(t.value)
 
@@ -263,6 +295,10 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
+        self.buf_list[t.name] = cStringIO.StringIO()
+        self.buf = self.buf_list[t.name]
+        self.curr_def = t.name
+
         if dict.has_key('FunctionDef'):
             dict['FunctionDef'] = dict['FunctionDef'] + 1
         else:
@@ -281,6 +317,9 @@ class Unparser:
         self.func_name = " "
         self.leave()
 
+        self.curr_def = "default"
+        self.buf_rst = True
+
     def _For(self, t):
         if dict.has_key('For'):
             dict['For'] = dict['For'] + 1
@@ -298,6 +337,14 @@ class Unparser:
         self.leave()
 
     def _If(self, t):
+        if self.curr_def == "default" and t.test.left.id == "__name__":
+            self.dep_graph.add_edge("default", "main")
+            self.buf_list["main"] = cStringIO.StringIO()
+            self.buf = self.buf_list["main"]
+            self.curr_def = "main"
+        if self.curr_def == "main":
+            self.main_cnt += 1;
+
         if dict.has_key('If'):
             dict['If'] = dict['If'] + 1
         else:
@@ -330,6 +377,12 @@ class Unparser:
             self.dispatch(t.orelse)
             self.newline()
             self.leave()
+
+        if self.curr_def == "main":
+            self.main_cnt -= 1
+            if self.main_cnt == 0:
+                self.curr_def = "default"
+                self.buf_rst = True
 
     def _While(self, t):
         if dict.has_key('While'):
@@ -504,10 +557,15 @@ class Unparser:
         # it or add an extra space to get 3 .__abs__().
         # if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
         #     self.write(" ")
-        #self.write(".")
-        #self.write(t.attr)
+        # self.write(".")
+        # self.write(t.attr)
 
     def _Call(self, t):
+        if isinstance(t.func, ast.Name):
+            self.dep_graph.add_edge(self.curr_def, t.func.id)
+        # elif isinstance(t.func, ast.Attribute):
+        #     self.dep_graph.add_edge(self.curr_def, t.func.attr)
+
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
             cnt = 0
@@ -616,8 +674,6 @@ def roundtrip(filename, output=sys.stdout):
 
 if __name__=='__main__':
     roundtrip(sys.argv[1])
-
     print('-------------------\n')
     for i in dict:
         print i, dict[i]
-
