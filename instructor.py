@@ -32,51 +32,52 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    # member varibale (some flags to handle different cases)
-
-    ###################
-
     def __init__(self, tree):
-        """Initialize instructor"""
+        """Initialize instructor."""
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
         self.future_imports = []
         self._indent = 0
+        self.no_newline = True
         self.variables = []
         self.func_name = " "
         self.no_direct_call = False
         self.import_module = False
         self.dep_graph = networkx.DiGraph()
+        self.dist_list = {"default": 0}
         self.dist_group = [["default"]]
-        self.buf_list = {"default": self.buf}
-        self.curr_def = "default"
-        self.main_cnt = 0
-        self.buf_rst = False
+        self.buf_list = {"default": cStringIO.StringIO()}
+        self.curr_buf = self.buf_list["default"]
+        self.curr_func = "default"
+        self.reset_buf = False
 
     def run(self):
-        """generate instructions"""
+        """Generate instructions."""
         self.dispatch(self.tree)
+        self.newline()
         self.group()
         self.flush()
         return self.instructions
 
     def newline(self):
-        """End current code/instruction block. Named for historical reason
-        since we started off with line by line translation.
-        """
+        """End current code/instruction block."""
+        if self.no_newline:
+            self.no_newline = False
+            return
         self.write("\n")
-        if self.buf_rst:
-            self.buf = self.buf_list["default"]
-            self.buf_rst = False
+        if self.reset_buf:
+            self.curr_buf = self.buf_list["default"]
+            self.reset_buf = False
 
     def indent(self):
-        """Write appropriate indentation"""
+        """Write appropriate indentation."""
         self.write("    " * self._indent)
 
     def write(self, text):
         "Append a piece of text to the current line."
         self.buf.write(text)
+        self.curr_buf.write(text)
 
     def enter(self):
         "Print ':', and increase the indentation."
@@ -91,7 +92,6 @@ class Unparser:
         "Dispatcher function, dispatching tree type T to method _T."
         if isinstance(tree, ast.stmt):
             self.newline()
-
         if isinstance(tree, list):
             for t in tree:
                 self.dispatch(t)
@@ -100,28 +100,34 @@ class Unparser:
         meth(tree)
 
     def group(self):
-        bfse = networkx.bfs_edges(self.dep_graph, "default")
-        dist = {"default": 0}
-        for edge in bfse:
-            if not self.buf_list.has_key(edge[1]):
-                continue
-            dist[edge[1]] = dist[edge[0]] + 1
-            if dist[edge[1]] >= len(self.dist_group):
+        bfs_edges = networkx.bfs_edges(self.dep_graph, "default")
+        for edge in bfs_edges:
+            self.dist_list[edge[1]] = self.dist_list[edge[0]] + 1
+            if self.dist_list[edge[1]] >= len(self.dist_group):
                 self.dist_group.append([edge[1]])
             else:
-                self.dist_group[dist[edge[1]]].append(edge[1])
+                self.dist_group[self.dist_list[edge[1]]].append(edge[1])
 
     def flush(self):
-        # Top-down structure
-        # for group in self.dist_group:
-        #     for func in group:
-        #         self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+        if len(self.dist_group) == 1:
+            self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
+            return
 
-        # Bottom-up structure
+        # Top-down structured instructions
+        #for group in self.dist_group:
+        #    for func in group:
+        #        if not self.buf_list.has_key(func):
+        #            continue
+        #        self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+
+        # Bottom-up structured instructions
         self.instructions.extend(self.buf_list["default"].getvalue().split("\n")[:-1])
         for group in self.dist_group[:0:-1]:
             for func in group:
+                if not self.buf_list.has_key(func):
+                    continue
                 self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+
 
     ############### Unparsing methods ######################
     # There should be one method per concrete grammar type #
@@ -180,7 +186,7 @@ class Unparser:
                 dict['Variable'] = 1
 
             self.indent()
-            self.write("Create and initialize variable ")
+            self.write("Initialize a variable ")
             for target in t.targets:
                 self.write("\'")
                 self.dispatch(target)
@@ -274,11 +280,10 @@ class Unparser:
             dict['ClassDef'] = 1
 
         self.indent()
-        self.write("Define a class called '" + t.name + "'")
+        self.write("Define a class '" + t.name + "'")
         do_comma = False
         if t.bases:
             # self.write("(")
-
             if dict.has_key('ClassDef_inherit'):
                 dict['ClassDef_inherit'] = dict['ClassDef_inherit'] + 1
             else:
@@ -296,8 +301,8 @@ class Unparser:
 
     def _FunctionDef(self, t):
         self.buf_list[t.name] = cStringIO.StringIO()
-        self.buf = self.buf_list[t.name]
-        self.curr_def = t.name
+        self.curr_buf = self.buf_list[t.name]
+        self.curr_func = t.name
 
         if dict.has_key('FunctionDef'):
             dict['FunctionDef'] = dict['FunctionDef'] + 1
@@ -306,19 +311,21 @@ class Unparser:
 
         self.func_name = t.name
         self.indent()
-        self.write("Define a function called '" + t.name + "'")
-        self.write("\n")
-        self.indent()
-        self.write("Set the input arguments to (")
+        self.write("Define a function '" + t.name + "'")
+        if len(t.args.args) == 0:
+            self.write(" without parameters")
+        elif len(t.args.args) == 1:
+            self.write(" with a parameter ")
+        else:
+            self.write(" with parameters ")
         self.dispatch(t.args)
-        self.write(")")
         self.enter()
         self.dispatch(t.body)
         self.func_name = " "
         self.leave()
 
-        self.curr_def = "default"
-        self.buf_rst = True
+        self.curr_func = "default"
+        self.reset_buf = True
 
     def _For(self, t):
         if dict.has_key('For'):
@@ -327,7 +334,7 @@ class Unparser:
             dict['For'] = 1
 
         self.indent()
-        self.write("Iterate the variable ")
+        self.write("Iterate variable ")
         self.dispatch(t.target)
         self.write(" over ")
         self.dispatch(t.iter)
@@ -337,52 +344,51 @@ class Unparser:
         self.leave()
 
     def _If(self, t):
-        if self.curr_def == "default" and t.test.left.id == "__name__":
+        if (self.curr_func == "default" and
+            isinstance(t.test, ast.Compare) and
+            isinstance(t.test.left, ast.Name) and
+            t.test.left.id == "__name__"):
             self.dep_graph.add_edge("default", "main")
             self.buf_list["main"] = cStringIO.StringIO()
-            self.buf = self.buf_list["main"]
-            self.curr_def = "main"
-        if self.curr_def == "main":
-            self.main_cnt += 1;
+            self.curr_buf = self.buf_list["main"]
+            self.curr_func = "main"
 
         if dict.has_key('If'):
             dict['If'] = dict['If'] + 1
         else:
             dict['If'] = 1
+
         self.indent()
         self.write("If ")
         self.dispatch(t.test)
         self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
-        self.newline()
         self.leave()
         # collapse nested ifs into equivalent elifs.
         while (t.orelse and len(t.orelse) == 1 and
                isinstance(t.orelse[0], ast.If)):
             t = t.orelse[0]
+            self.newline()
             self.indent()
             self.write("Else if ")
             self.dispatch(t.test)
             self.write(", do the following")
             self.enter()
             self.dispatch(t.body)
-            self.newline()
             self.leave()
         # final else
         if t.orelse:
+            self.newline()
             self.indent()
             self.write("Else, do the following")
             self.enter()
             self.dispatch(t.orelse)
-            self.newline()
             self.leave()
 
-        if self.curr_def == "main":
-            self.main_cnt -= 1
-            if self.main_cnt == 0:
-                self.curr_def = "default"
-                self.buf_rst = True
+        if self.curr_func == "main" and self._indent == 0:
+            self.curr_func = "default"
+            self.reset_buf = True
 
     def _While(self, t):
         if dict.has_key('While'):
@@ -562,9 +568,9 @@ class Unparser:
 
     def _Call(self, t):
         if isinstance(t.func, ast.Name):
-            self.dep_graph.add_edge(self.curr_def, t.func.id)
+            self.dep_graph.add_edge(self.curr_func, t.func.id)
         # elif isinstance(t.func, ast.Attribute):
-        #     self.dep_graph.add_edge(self.curr_def, t.func.attr)
+        #     self.dep_graph.add_edge(self.curr_func, t.func.attr)
 
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
@@ -601,11 +607,13 @@ class Unparser:
         if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
             self.write(" recursively")
         comma = False
-        # handle cases of no parameters
-        if not t.args:
-            self.write(" without parameters")
+        # handle cases of no arguments
+        if len(t.args) + len(t.keywords) == 0:
+            self.write(" without arguments")
+        elif len(t.args) + len(t.keywords) == 1:
+            self.write(" with an argument ")
         else:
-            self.write(" with parameters of ")
+            self.write(" with arguments ")
         for e in t.args:
             if comma: self.write(", ")
             else: comma = True

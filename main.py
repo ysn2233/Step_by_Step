@@ -15,11 +15,8 @@ if __name__ == '__main__':
 
     tree = ast.parse(code, fn, 'exec')
     instructions = [ins for ins in instructor.Unparser(tree).run() if ins]
+    lines = [line for line in unparse.Unparser(tree).run() if line]
 
-    src = cStringIO.StringIO()
-    unparse.Unparser(tree, src)
-    lines = [line for line in src.getvalue().split('\n') if line]
-
-    res = [{'code': code, 'instruction': ins} for (code, ins) in
+    res = [{'code': line, 'instruction': ins} for (line, ins) in
            zip(lines, instructions)]
     json.dump(res, sys.stdout, indent=4)
