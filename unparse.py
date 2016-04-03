@@ -4,6 +4,12 @@ import ast
 import cStringIO
 import os
 import networkx
+import enum
+
+class Mode(enum.Enum):
+    none = 0
+    bfs  = 1
+    dfs  = 2
 
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
@@ -27,27 +33,27 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    def __init__(self, tree):
+    def __init__(self, tree, mode=Mode.none):
         """Initialize unparser."""
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
         self.future_imports = []
-        self._indent = 0
+        self.indents = 0
         self.no_newline = True
+        self.mode = mode
         self.dep_graph = networkx.DiGraph()
-        self.dist_list = {"default": 0}
-        self.dist_group = [["default"]]
-        self.buf_list = {"default": cStringIO.StringIO()}
-        self.curr_buf = self.buf_list["default"]
-        self.curr_func = "default"
+        self.curr_buf = cStringIO.StringIO()
+        self.buf_list = {"header": self.curr_buf}
+        self.curr_func = "header"
         self.reset_buf = False
+        self.func_list = ["header"]
 
     def run(self):
         """Generate code lines."""
         self.dispatch(self.tree)
         self.newline()
-        self.group()
+        self.search()
         self.flush()
         return self.instructions
 
@@ -58,12 +64,14 @@ class Unparser:
             return
         self.write("\n")
         if self.reset_buf:
-            self.curr_buf = self.buf_list["default"]
+            self.curr_buf = cStringIO.StringIO()
+            self.buf_list["footer"] = self.curr_buf
+            self.curr_func = "footer"
             self.reset_buf = False
 
     def indent(self):
         """Write appropriate indentation."""
-        self.write("    " * self._indent)
+        self.write("    " * self.indents)
 
     def write(self, text):
         "Append a piece of text to the current line."
@@ -73,11 +81,11 @@ class Unparser:
     def enter(self):
         "Print ':', and increase the indentation."
         self.write(":")
-        self._indent += 1
+        self.indents += 1
 
     def leave(self):
         "Decrease the indentation level."
-        self._indent -= 1
+        self.indents -= 1
 
     def dispatch(self, tree):
         "Dispatcher function, dispatching tree type T to method _T."
@@ -87,37 +95,33 @@ class Unparser:
             for t in tree:
                 self.dispatch(t)
             return
-        meth = getattr(self, "_"+tree.__class__.__name__)
+        meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
 
-    def group(self):
-        bfs_edges = networkx.bfs_edges(self.dep_graph, "default")
-        for edge in bfs_edges:
-            self.dist_list[edge[1]] = self.dist_list[edge[0]] + 1
-            if self.dist_list[edge[1]] >= len(self.dist_group):
-                self.dist_group.append([edge[1]])
-            else:
-                self.dist_group[self.dist_list[edge[1]]].append(edge[1])
+    def search(self):
+        if self.mode == Mode.none or self.curr_func == "header":
+            return
+
+        if self.mode == Mode.bfs:
+            edges = list(networkx.bfs_edges(self.dep_graph, "footer"))
+            for edge in edges[::-1]:
+                self.func_list.append(edge[1])
+            self.func_list.append("footer")
+        elif self.mode == Mode.dfs:
+            nodes = networkx.dfs_postorder_nodes(self.dep_graph, "footer")
+            self.func_list.extend(nodes)
+        else:
+            assert False, "shouldn't get here"
 
     def flush(self):
-        if len(self.dist_group) == 1:
+        if self.mode == Mode.none or self.curr_func == "header":
             self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
             return
 
-        # Top-down structured instructions
-        #for group in self.dist_group:
-        #    for func in group:
-        #        if not self.buf_list.has_key(func):
-        #            continue
-        #        self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
-
-        # Bottom-up structured instructions
-        self.instructions.extend(self.buf_list["default"].getvalue().split("\n")[:-1])
-        for group in self.dist_group[:0:-1]:
-            for func in group:
-                if not self.buf_list.has_key(func):
-                    continue
-                self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+        for func in self.func_list:
+            if not self.buf_list.has_key(func):
+                continue
+            self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
 
 
     ############### Unparsing methods ######################
@@ -164,7 +168,7 @@ class Unparser:
     def _AugAssign(self, t):
         self.indent()
         self.dispatch(t.target)
-        self.write(" "+self.binop[t.op.__class__.__name__]+"= ")
+        self.write(" " + self.binop[t.op.__class__.__name__] + "= ")
         self.dispatch(t.value)
 
     def _Return(self, t):
@@ -319,8 +323,11 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        self.buf_list[t.name] = cStringIO.StringIO()
-        self.curr_buf = self.buf_list[t.name]
+        if self.curr_func == "header":
+            self.curr_buf = cStringIO.StringIO()
+        else:
+            self.buf_list["footer"] = None
+        self.buf_list[t.name] = self.curr_buf
         self.curr_func = t.name
 
         for deco in t.decorator_list:
@@ -336,7 +343,6 @@ class Unparser:
         self.dispatch(t.body)
         self.leave()
 
-        self.curr_func = "default"
         self.reset_buf = True
 
     def _For(self, t):
@@ -357,15 +363,6 @@ class Unparser:
             self.leave()
 
     def _If(self, t):
-        if (self.curr_func == "default" and
-            isinstance(t.test, ast.Compare) and
-            isinstance(t.test.left, ast.Name) and
-            t.test.left.id == "__name__"):
-            self.dep_graph.add_edge("default", "main")
-            self.buf_list["main"] = cStringIO.StringIO()
-            self.curr_buf = self.buf_list["main"]
-            self.curr_func = "main"
-
         self.indent()
         self.write("if ")
         self.dispatch(t.test)
@@ -391,10 +388,6 @@ class Unparser:
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
-
-        if self.curr_func == "main" and self._indent == 0:
-            self.curr_func = "default"
-            self.reset_buf = True
 
     def _While(self, t):
         self.indent()
@@ -533,7 +526,7 @@ class Unparser:
             interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write(")")
 
-    unop = {"Invert":"~", "Not": "not", "UAdd":"+", "USub":"-"}
+    unop = {"Invert":"~", "Not":"not", "UAdd":"+", "USub":"-"}
     def _UnaryOp(self, t):
         self.write("(")
         self.write(self.unop[t.op.__class__.__name__])
@@ -571,7 +564,7 @@ class Unparser:
             self.dispatch(e)
         self.write(")")
 
-    boolops = {ast.And: 'and', ast.Or: 'or'}
+    boolops = {ast.And: "and", ast.Or: "or"}
     def _BoolOp(self, t):
         self.write("(")
         s = " %s " % self.boolops[t.op.__class__]
@@ -591,8 +584,8 @@ class Unparser:
     def _Call(self, t):
         if isinstance(t.func, ast.Name):
             self.dep_graph.add_edge(self.curr_func, t.func.id)
-        # elif isinstance(t.func, ast.Attribute):
-        #     self.dep_graph.add_edge(self.curr_func, t.func.attr)
+        elif isinstance(t.func, ast.Attribute):
+            self.dep_graph.add_edge(self.curr_func, t.func.attr)
 
         self.dispatch(t.func)
         self.write("(")
@@ -641,7 +634,7 @@ class Unparser:
             self.dispatch(t.step)
 
     def _ExtSlice(self, t):
-        interleave(lambda: self.write(', '), self.dispatch, t.dims)
+        interleave(lambda: self.write(", "), self.dispatch, t.dims)
 
     # others
     def _arguments(self, t):
@@ -685,42 +678,26 @@ class Unparser:
     def _alias(self, t):
         self.write(t.name)
         if t.asname:
-            self.write(" as "+t.asname)
+            self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout):
+def roundtrip(filename, output=sys.stdout, mode=Mode.none):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree).run()
+    instructions = Unparser(tree, mode).run()
     for i in instructions:
         output.write(i)
         output.write("\n")
 
-def testdir(a):
-    try:
-        names = [n for n in os.listdir(a) if n.endswith('.py')]
-    except OSError:
-        sys.stderr.write("Directory not readable: %s" % a)
-    else:
-        for n in names:
-            fullname = os.path.join(a, n)
-            if os.path.isfile(fullname):
-                output = cStringIO.StringIO()
-                print 'Testing %s' % fullname
-                try:
-                    roundtrip(fullname, output)
-                except Exception as e:
-                    print '  Failed to compile, exception is %s' % repr(e)
-            elif os.path.isdir(fullname):
-                testdir(fullname)
-
 def main(args):
-    if args[0] == '--testdir':
-        for a in args[1:]:
-            testdir(a)
+    if args[0] == '-n':
+        roundtrip(args[1], sys.stdout, Mode.none)
+    elif args[0] == '-b':
+        roundtrip(args[1], sys.stdout, Mode.bfs)
+    elif args[0] == '-d':
+        roundtrip(args[1], sys.stdout, Mode.dfs)
     else:
-        for a in args:
-            roundtrip(a)
+        roundtrip(args[0])
 
-if __name__=='__main__':
+if __name__ == '__main__':
     main(sys.argv[1:])
