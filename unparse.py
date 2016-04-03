@@ -34,7 +34,7 @@ class Unparser:
     is disregarded. """
 
     def __init__(self, tree, mode=Mode.none):
-        """Initialize unparser."""
+        """Initialise unparser."""
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
@@ -43,11 +43,12 @@ class Unparser:
         self.no_newline = True
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
+        self.dep_graph.add_node("header")
         self.curr_buf = cStringIO.StringIO()
         self.buf_list = {"header": self.curr_buf}
         self.curr_func = "header"
         self.reset_buf = False
-        self.func_list = ["header"]
+        self.func_list = []
 
     def run(self):
         """Generate code lines."""
@@ -64,6 +65,7 @@ class Unparser:
             return
         self.write("\n")
         if self.reset_buf:
+            self.dep_graph.add_node("footer")
             self.curr_buf = cStringIO.StringIO()
             self.buf_list["footer"] = self.curr_buf
             self.curr_func = "footer"
@@ -99,22 +101,31 @@ class Unparser:
         meth(tree)
 
     def search(self):
-        if self.mode == Mode.none or self.curr_func == "header":
+        if (self.mode == Mode.none or
+            not self.dep_graph.has_node("footer") or
+            self.dep_graph.out_degree("footer") == 0):
             return
 
+        self.dep_graph.remove_edges_from(self.dep_graph.selfloop_edges())
+        if not networkx.is_directed_acyclic_graph(self.dep_graph):
+            assert False, "non-self-cycles exist in dependency graph"
+
+        self.func_list = ["header"]
         if self.mode == Mode.bfs:
-            edges = list(networkx.bfs_edges(self.dep_graph, "footer"))
-            for edge in edges[::-1]:
-                self.func_list.append(edge[1])
-            self.func_list.append("footer")
+            neg_graph = networkx.DiGraph()
+            neg_graph.add_edges_from(self.dep_graph.edges(), weight=-1)
+            pred_list, dist_list = networkx.bellman_ford(neg_graph, "footer")
+            for d in range(min(dist_list.values()), 1):
+                for func, dist in dist_list.items():
+                    if dist == d:
+                        self.func_list.append(func)
         elif self.mode == Mode.dfs:
-            nodes = networkx.dfs_postorder_nodes(self.dep_graph, "footer")
-            self.func_list.extend(nodes)
+            self.func_list.extend(networkx.dfs_postorder_nodes(self.dep_graph, "footer"))
         else:
             assert False, "shouldn't get here"
 
     def flush(self):
-        if self.mode == Mode.none or self.curr_func == "header":
+        if not self.func_list:
             self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
             return
 
@@ -582,10 +593,11 @@ class Unparser:
         self.write(t.attr)
 
     def _Call(self, t):
+        # commented lines reserved for complete dependency graph
         if isinstance(t.func, ast.Name):
             self.dep_graph.add_edge(self.curr_func, t.func.id)
-        elif isinstance(t.func, ast.Attribute):
-            self.dep_graph.add_edge(self.curr_func, t.func.attr)
+        # elif isinstance(t.func, ast.Attribute):
+        #    self.dep_graph.add_edge(self.curr_func, t.func.attr)
 
         self.dispatch(t.func)
         self.write("(")
@@ -691,11 +703,11 @@ def roundtrip(filename, output=sys.stdout, mode=Mode.none):
 
 def main(args):
     if args[0] == '-n':
-        roundtrip(args[1], sys.stdout, Mode.none)
+        roundtrip(args[1], mode=Mode.none)
     elif args[0] == '-b':
-        roundtrip(args[1], sys.stdout, Mode.bfs)
+        roundtrip(args[1], mode=Mode.bfs)
     elif args[0] == '-d':
-        roundtrip(args[1], sys.stdout, Mode.dfs)
+        roundtrip(args[1], mode=Mode.dfs)
     else:
         roundtrip(args[0])
 
