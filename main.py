@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+"Usage: main.py [-n|b|d] <path to source file>"
 import unparse
 import instructor
 import cStringIO

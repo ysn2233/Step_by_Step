@@ -4,7 +4,7 @@
 # originally from official python source code
 # http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
 
-"Usage: instructor.py <path to source file>"
+"Usage: instructor.py [-n|b|d] <path to source file>"
 import sys
 import ast
 import cStringIO
@@ -12,8 +12,10 @@ import os
 import json
 import networkx
 from unparse import Mode
+from unparse import Colour
+import Queue
 
-dict = {}
+Dict = {}
 
 def interleave(inter, f, seq):
     """Call f on each item in seq, calling inter() in between.
@@ -48,10 +50,11 @@ class Unparser:
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
         self.dep_graph.add_node("header")
+        self.call_seq = 1
         self.curr_buf = cStringIO.StringIO()
         self.buf_list = {"header": self.curr_buf}
-        self.curr_func = "header"
-        self.reset_buf = False
+        self.curr_def = "header"
+        self.end_def = False
         self.func_list = []
 
     def run(self):
@@ -68,12 +71,13 @@ class Unparser:
             self.no_newline = False
             return
         self.write("\n")
-        if self.reset_buf:
+        if self.end_def:
             self.dep_graph.add_node("footer")
+            self.call_seq = 1
             self.curr_buf = cStringIO.StringIO()
             self.buf_list["footer"] = self.curr_buf
-            self.curr_func = "footer"
-            self.reset_buf = False
+            self.curr_def = "footer"
+            self.end_def = False
 
     def indent(self):
         """Write appropriate indentation."""
@@ -104,6 +108,39 @@ class Unparser:
         meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
 
+    def dep_bfs(self, source):
+        dist = {source:0}
+        groups = [[source]]
+        nodes = self.new_graph.nodes()
+        colour = dict(zip(nodes, [Colour.white] * len(nodes)))
+        queue = Queue.Queue()
+        queue.put(source)
+        while not queue.empty():
+            edges = self.new_graph.edges(queue.get(), "weight")
+            edges = sorted(edges, key=lambda t:t[2])
+            for e in edges:
+                if colour[e[1]] == Colour.white:
+                    dist[e[1]] = dist[e[0]] + 1
+                    if dist[e[1]] >= len(groups):
+                        groups.append([e[1]])
+                    else:
+                        groups[dist[e[1]]].append(e[1])
+                    colour[e[1]] = Colour.grey
+                    queue.put(e[1])
+            colour[e[1]] = Colour.black
+        for g in groups[::-1]:
+            self.func_list.extend(g)
+
+    def dep_dfs(self, source):
+        self.colour[source] = Colour.grey
+        edges = self.dep_graph.edges(source, "weight")
+        edges = sorted(edges, key=lambda t:t[2])
+        for e in edges:
+            if self.colour[e[1]] == Colour.white:
+                self.dep_dfs(e[1])
+        self.colour[source] = Colour.black
+        self.func_list.append(source)
+
     def search(self):
         if (self.mode == Mode.none or
             not self.dep_graph.has_node("footer") or
@@ -118,13 +155,17 @@ class Unparser:
         if self.mode == Mode.bfs:
             neg_graph = networkx.DiGraph()
             neg_graph.add_edges_from(self.dep_graph.edges(), weight=-1)
-            pred_list, dist_list = networkx.bellman_ford(neg_graph, "footer")
-            for d in range(min(dist_list.values()), 1):
-                for func, dist in dist_list.items():
-                    if dist == d:
-                        self.func_list.append(func)
+            preds = networkx.bellman_ford(neg_graph, "footer")[0]
+            self.new_graph = networkx.DiGraph()
+            for n, p in preds.items():
+                if p:
+                    w = self.dep_graph.get_edge_data(p, n)["weight"]
+                    self.new_graph.add_edge(p, n, weight=w)
+            self.dep_bfs("footer")
         elif self.mode == Mode.dfs:
-            self.func_list.extend(networkx.dfs_postorder_nodes(self.dep_graph, "footer"))
+            nodes = self.dep_graph.nodes()
+            self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
+            self.dep_dfs("footer")
         else:
             assert False, "shouldn't get here"
 
@@ -157,10 +198,10 @@ class Unparser:
         self.dispatch(tree.value)
 
     def _Import(self, t):
-        if dict.has_key('Import'):
-            dict['Import'] = dict['Import'] + 1
+        if Dict.has_key('Import'):
+            Dict['Import'] = Dict['Import'] + 1
         else:
-            dict['Import'] = 1
+            Dict['Import'] = 1
 
         self.import_module = True
         self.indent()
@@ -190,10 +231,10 @@ class Unparser:
                     self.variables.append(target.id)
                     Init = True
         if Init:
-            if dict.has_key('Variable'):
-                dict['Variable'] = dict['Variable'] + 1
+            if Dict.has_key('Variable'):
+                Dict['Variable'] = Dict['Variable'] + 1
             else:
-                dict['Variable'] = 1
+                Dict['Variable'] = 1
 
             self.indent()
             self.write("Initialise a variable ")
@@ -233,28 +274,28 @@ class Unparser:
             self.dispatch(t.value)
 
     def _Break(self, t):
-        if dict.has_key('Break'):
-            dict['Break'] = dict['Break'] + 1
+        if Dict.has_key('Break'):
+            Dict['Break'] = Dict['Break'] + 1
         else:
-            dict['Break'] = 1
+            Dict['Break'] = 1
 
         self.indent()
         self.write("Break out of the current loop")
 
     def _Continue(self, t):
-        if dict.has_key('Continue'):
-            dict['Continue'] = dict['Continue'] + 1
+        if Dict.has_key('Continue'):
+            Dict['Continue'] = Dict['Continue'] + 1
         else:
-            dict['Continue'] = 1
+            Dict['Continue'] = 1
 
         self.indent()
         self.write("Skip the rest of the code inside the loop and continue on with the next iteration")
 
     def _Assert(self, t):
-        if dict.has_key('Assert'):
-            dict['Assert'] = dict['Assert'] + 1
+        if Dict.has_key('Assert'):
+            Dict['Assert'] = Dict['Assert'] + 1
         else:
-            dict['Assert'] = 1
+            Dict['Assert'] = 1
 
         self.indent()
         # self.write("Assert ")
@@ -267,10 +308,10 @@ class Unparser:
             self.dispatch(t.msg)
 
     def _Print(self, t):
-        if dict.has_key('Print'):
-            dict['Print'] = dict['Print'] + 1
+        if Dict.has_key('Print'):
+            Dict['Print'] = Dict['Print'] + 1
         else:
-            dict['Print'] = 1
+            Dict['Print'] = 1
 
         self.no_direct_call = True
         self.indent()
@@ -284,20 +325,20 @@ class Unparser:
         self.no_direct_call = False
 
     def _ClassDef(self, t):
-        if dict.has_key('ClassDef'):
-            dict['ClassDef'] = dict['ClassDef'] + 1
+        if Dict.has_key('ClassDef'):
+            Dict['ClassDef'] = Dict['ClassDef'] + 1
         else:
-            dict['ClassDef'] = 1
+            Dict['ClassDef'] = 1
 
         self.indent()
         self.write("Define a class '" + t.name + "'")
         do_comma = False
         if t.bases:
             # self.write("(")
-            if dict.has_key('ClassDef_inherit'):
-                dict['ClassDef_inherit'] = dict['ClassDef_inherit'] + 1
+            if Dict.has_key('ClassDef_inherit'):
+                Dict['ClassDef_inherit'] = Dict['ClassDef_inherit'] + 1
             else:
-                dict['ClassDef_inherit'] = 1
+                Dict['ClassDef_inherit'] = 1
 
             self.write(", which inherits from ")
             for a in t.bases:
@@ -310,17 +351,17 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        if self.curr_func == "header":
+        if self.curr_def == "header":
             self.curr_buf = cStringIO.StringIO()
         else:
             self.buf_list["footer"] = None
         self.buf_list[t.name] = self.curr_buf
-        self.curr_func = t.name
+        self.curr_def = t.name
 
-        if dict.has_key('FunctionDef'):
-            dict['FunctionDef'] = dict['FunctionDef'] + 1
+        if Dict.has_key('FunctionDef'):
+            Dict['FunctionDef'] = Dict['FunctionDef'] + 1
         else:
-            dict['FunctionDef'] = 1
+            Dict['FunctionDef'] = 1
 
         self.func_name = t.name
         self.indent()
@@ -337,13 +378,13 @@ class Unparser:
         self.func_name = " "
         self.leave()
 
-        self.reset_buf = True
+        self.end_def = True
 
     def _For(self, t):
-        if dict.has_key('For'):
-            dict['For'] = dict['For'] + 1
+        if Dict.has_key('For'):
+            Dict['For'] = Dict['For'] + 1
         else:
-            dict['For'] = 1
+            Dict['For'] = 1
 
         self.indent()
         self.write("Iterate variable ")
@@ -356,10 +397,10 @@ class Unparser:
         self.leave()
 
     def _If(self, t):
-        if dict.has_key('If'):
-            dict['If'] = dict['If'] + 1
+        if Dict.has_key('If'):
+            Dict['If'] = Dict['If'] + 1
         else:
-            dict['If'] = 1
+            Dict['If'] = 1
 
         self.indent()
         self.write("If ")
@@ -390,10 +431,10 @@ class Unparser:
             self.leave()
 
     def _While(self, t):
-        if dict.has_key('While'):
-            dict['While'] = dict['While'] + 1
+        if Dict.has_key('While'):
+            Dict['While'] = Dict['While'] + 1
         else:
-            dict['While'] = 1
+            Dict['While'] = 1
 
         self.indent()
         self.write("While ")
@@ -437,10 +478,10 @@ class Unparser:
             self.write(")")
 
     def _List(self, t):
-        if dict.has_key('List'):
-            dict['List'] = dict['List'] + 1
+        if Dict.has_key('List'):
+            Dict['List'] = Dict['List'] + 1
         else:
-            dict['List'] = 1
+            Dict['List'] = 1
 
         self.write("list [")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
@@ -456,10 +497,10 @@ class Unparser:
         self.write(")")
 
     def _Set(self, t):
-        if dict.has_key('Set'):
-            dict['Set'] = dict['Set'] + 1
+        if Dict.has_key('Set'):
+            Dict['Set'] = Dict['Set'] + 1
         else:
-            dict['Set'] = 1
+            Dict['Set'] = 1
 
         assert(t.elts) # should be at least one element
         self.write("set {")
@@ -467,10 +508,10 @@ class Unparser:
         self.write("}")
 
     def _Dict(self, t):
-        if dict.has_key('Dict'):
-            dict['Dict'] = dict['Dict'] + 1
+        if Dict.has_key('Dict'):
+            Dict['Dict'] = Dict['Dict'] + 1
         else:
-            dict['Dict'] = 1
+            Dict['Dict'] = 1
 
         self.write("dictionary {")
         def write_pair(pair):
@@ -482,10 +523,10 @@ class Unparser:
         self.write("}")
 
     def _Tuple(self, t):
-        if dict.has_key('Tuple'):
-            dict['Tuple'] = dict['Tuple'] + 1
+        if Dict.has_key('Tuple'):
+            Dict['Tuple'] = Dict['Tuple'] + 1
         else:
-            dict['Tuple'] = 1
+            Dict['Tuple'] = 1
 
         self.write("tuple (")
         if len(t.elts) == 1:
@@ -568,9 +609,13 @@ class Unparser:
     def _Call(self, t):
         # commented lines reserved for complete dependency graph
         if isinstance(t.func, ast.Name):
-            self.dep_graph.add_edge(self.curr_func, t.func.id)
+            if not self.dep_graph.has_edge(self.curr_def, t.func.id):
+                self.dep_graph.add_edge(self.curr_def, t.func.id, weight=self.call_seq)
+                self.call_seq += 1
         # elif isinstance(t.func, ast.Attribute):
-        #     self.dep_graph.add_edge(self.curr_func, t.func.attr)
+        #     if not self.dep_graph.has_edge(self.curr_def, t.func.attr):
+        #         self.dep_graph.add_edge(self.curr_def, t.func.attr, weight=self.call_seq)
+        #         self.call_seq += 1
 
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
@@ -693,5 +738,5 @@ def main(args):
 if __name__ == '__main__':
     main(sys.argv[1:])
     print('-------------------\n')
-    for i in dict:
-        print i, dict[i]
+    for i in Dict:
+        print i, Dict[i]

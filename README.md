@@ -1,3 +1,28 @@
+# How to use dependency feature to re-organise output?
+
+Take *instructor.py* for example:
+
+Re-organise generated instructions in breadth-first order
+```sh
+λ> python instructor.py -b sample_inputs/dependency.py
+```
+
+Re-organise generated instructions in depth-first order
+```sh
+λ> python instructor.py -d sample_inputs/dependency.py
+```
+
+Keep generated instructions in orignal order
+```sh
+λ> python instructor.py sample_inputs/dependency.py
+```
+Or
+```sh
+λ> python instructor.py -n sample_inputs/dependency.py
+```
+
+Note: The output of *main.py* and *unparse.py* can now be handled in a similar way.
+
 # How to create and run a test case to cover a particular method in instructor.py?
 
 1. define a new method named with the test_ prefix in the TestInstructor

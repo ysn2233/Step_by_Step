@@ -1,15 +1,21 @@
-"Usage: unparse.py <path to source file>"
+"Usage: unparse.py [-n|b|d] <path to source file>"
 import sys
 import ast
 import cStringIO
 import os
 import networkx
 import enum
+import Queue
 
 class Mode(enum.Enum):
     none = 0
     bfs  = 1
     dfs  = 2
+
+class Colour(enum.Enum):
+    white = 0
+    grey  = 1
+    black = 2
 
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
@@ -44,10 +50,11 @@ class Unparser:
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
         self.dep_graph.add_node("header")
+        self.call_seq = 1
         self.curr_buf = cStringIO.StringIO()
         self.buf_list = {"header": self.curr_buf}
-        self.curr_func = "header"
-        self.reset_buf = False
+        self.curr_def = "header"
+        self.end_def = False
         self.func_list = []
 
     def run(self):
@@ -64,12 +71,13 @@ class Unparser:
             self.no_newline = False
             return
         self.write("\n")
-        if self.reset_buf:
+        if self.end_def:
             self.dep_graph.add_node("footer")
+            self.call_seq = 1
             self.curr_buf = cStringIO.StringIO()
             self.buf_list["footer"] = self.curr_buf
-            self.curr_func = "footer"
-            self.reset_buf = False
+            self.curr_def = "footer"
+            self.end_def = False
 
     def indent(self):
         """Write appropriate indentation."""
@@ -100,6 +108,39 @@ class Unparser:
         meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
 
+    def dep_bfs(self, source):
+        dist = {source:0}
+        groups = [[source]]
+        nodes = self.new_graph.nodes()
+        colour = dict(zip(nodes, [Colour.white] * len(nodes)))
+        queue = Queue.Queue()
+        queue.put(source)
+        while not queue.empty():
+            edges = self.new_graph.edges(queue.get(), "weight")
+            edges = sorted(edges, key=lambda t:t[2])
+            for e in edges:
+                if colour[e[1]] == Colour.white:
+                    dist[e[1]] = dist[e[0]] + 1
+                    if dist[e[1]] >= len(groups):
+                        groups.append([e[1]])
+                    else:
+                        groups[dist[e[1]]].append(e[1])
+                    colour[e[1]] = Colour.grey
+                    queue.put(e[1])
+            colour[e[1]] = Colour.black
+        for g in groups[::-1]:
+            self.func_list.extend(g)
+
+    def dep_dfs(self, source):
+        self.colour[source] = Colour.grey
+        edges = self.dep_graph.edges(source, "weight")
+        edges = sorted(edges, key=lambda t:t[2])
+        for e in edges:
+            if self.colour[e[1]] == Colour.white:
+                self.dep_dfs(e[1])
+        self.colour[source] = Colour.black
+        self.func_list.append(source)
+
     def search(self):
         if (self.mode == Mode.none or
             not self.dep_graph.has_node("footer") or
@@ -114,13 +155,17 @@ class Unparser:
         if self.mode == Mode.bfs:
             neg_graph = networkx.DiGraph()
             neg_graph.add_edges_from(self.dep_graph.edges(), weight=-1)
-            pred_list, dist_list = networkx.bellman_ford(neg_graph, "footer")
-            for d in range(min(dist_list.values()), 1):
-                for func, dist in dist_list.items():
-                    if dist == d:
-                        self.func_list.append(func)
+            preds = networkx.bellman_ford(neg_graph, "footer")[0]
+            self.new_graph = networkx.DiGraph()
+            for n, p in preds.items():
+                if p:
+                    w = self.dep_graph.get_edge_data(p, n)["weight"]
+                    self.new_graph.add_edge(p, n, weight=w)
+            self.dep_bfs("footer")
         elif self.mode == Mode.dfs:
-            self.func_list.extend(networkx.dfs_postorder_nodes(self.dep_graph, "footer"))
+            nodes = self.dep_graph.nodes()
+            self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
+            self.dep_dfs("footer")
         else:
             assert False, "shouldn't get here"
 
@@ -334,12 +379,12 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
-        if self.curr_func == "header":
+        if self.curr_def == "header":
             self.curr_buf = cStringIO.StringIO()
         else:
             self.buf_list["footer"] = None
         self.buf_list[t.name] = self.curr_buf
-        self.curr_func = t.name
+        self.curr_def = t.name
 
         for deco in t.decorator_list:
             self.indent()
@@ -354,7 +399,7 @@ class Unparser:
         self.dispatch(t.body)
         self.leave()
 
-        self.reset_buf = True
+        self.end_def = True
 
     def _For(self, t):
         self.indent()
@@ -595,9 +640,13 @@ class Unparser:
     def _Call(self, t):
         # commented lines reserved for complete dependency graph
         if isinstance(t.func, ast.Name):
-            self.dep_graph.add_edge(self.curr_func, t.func.id)
+            if not self.dep_graph.has_edge(self.curr_def, t.func.id):
+                self.dep_graph.add_edge(self.curr_def, t.func.id, weight=self.call_seq)
+                self.call_seq += 1
         # elif isinstance(t.func, ast.Attribute):
-        #    self.dep_graph.add_edge(self.curr_func, t.func.attr)
+        #     if not self.dep_graph.has_edge(self.curr_def, t.func.attr):
+        #         self.dep_graph.add_edge(self.curr_def, t.func.attr, weight=self.call_seq)
+        #         self.call_seq += 1
 
         self.dispatch(t.func)
         self.write("(")
