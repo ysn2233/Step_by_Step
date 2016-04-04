@@ -147,12 +147,11 @@ class Unparser:
             self.dep_graph.out_degree("footer") == 0):
             return
 
-        self.dep_graph.remove_edges_from(self.dep_graph.selfloop_edges())
-        if not networkx.is_directed_acyclic_graph(self.dep_graph):
-            assert False, "non-self-cycles exist in dependency graph"
-
         self.func_list = ["header"]
         if self.mode == Mode.bfs:
+            self.dep_graph.remove_edges_from(self.dep_graph.selfloop_edges())
+            if not networkx.is_directed_acyclic_graph(self.dep_graph):
+                assert False, "non-self-cycles exist in dependency graph"
             neg_graph = networkx.DiGraph()
             neg_graph.add_edges_from(self.dep_graph.edges(), weight=-1)
             preds = networkx.bellman_ford(neg_graph, "footer")[0]
