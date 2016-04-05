@@ -71,6 +71,7 @@ class Unparser:
             self.no_newline = False
             return
         self.write("\n")
+        # code for function dependency
         if self.end_def:
             self.dep_graph.add_node("footer")
             self.call_seq = 1
@@ -111,12 +112,12 @@ class Unparser:
     def dep_bfs(self, source):
         dist = {source:0}
         groups = [[source]]
-        nodes = self.new_graph.nodes()
+        nodes = self.dep_graph.nodes()
         colour = dict(zip(nodes, [Colour.white] * len(nodes)))
         queue = Queue.Queue()
         queue.put(source)
         while not queue.empty():
-            edges = self.new_graph.edges(queue.get(), "weight")
+            edges = self.dep_graph.edges(queue.get(), "weight")
             edges = sorted(edges, key=lambda t:t[2])
             for e in edges:
                 if colour[e[1]] == Colour.white:
@@ -149,17 +150,6 @@ class Unparser:
 
         self.func_list = ["header"]
         if self.mode == Mode.bfs:
-            self.dep_graph.remove_edges_from(self.dep_graph.selfloop_edges())
-            if not networkx.is_directed_acyclic_graph(self.dep_graph):
-                assert False, "non-self-cycles exist in dependency graph"
-            neg_graph = networkx.DiGraph()
-            neg_graph.add_edges_from(self.dep_graph.edges(), weight=-1)
-            preds = networkx.bellman_ford(neg_graph, "footer")[0]
-            self.new_graph = networkx.DiGraph()
-            for n, p in preds.items():
-                if p:
-                    w = self.dep_graph.get_edge_data(p, n)["weight"]
-                    self.new_graph.add_edge(p, n, weight=w)
             self.dep_bfs("footer")
         elif self.mode == Mode.dfs:
             nodes = self.dep_graph.nodes()
@@ -350,6 +340,7 @@ class Unparser:
         self.leave()
 
     def _FunctionDef(self, t):
+        # code for function dependency
         if self.curr_def == "header":
             self.curr_buf = cStringIO.StringIO()
         else:
@@ -377,6 +368,7 @@ class Unparser:
         self.func_name = " "
         self.leave()
 
+        # code for function dependency
         self.end_def = True
 
     def _For(self, t):
@@ -606,15 +598,15 @@ class Unparser:
         # self.write(t.attr)
 
     def _Call(self, t):
-        # commented lines reserved for complete dependency graph
+        # code for function dependency
         if isinstance(t.func, ast.Name):
             if not self.dep_graph.has_edge(self.curr_def, t.func.id):
                 self.dep_graph.add_edge(self.curr_def, t.func.id, weight=self.call_seq)
                 self.call_seq += 1
-        # elif isinstance(t.func, ast.Attribute):
-        #     if not self.dep_graph.has_edge(self.curr_def, t.func.attr):
-        #         self.dep_graph.add_edge(self.curr_def, t.func.attr, weight=self.call_seq)
-        #         self.call_seq += 1
+        elif isinstance(t.func, ast.Attribute):
+            if not self.dep_graph.has_edge(self.curr_def, t.func.attr):
+                self.dep_graph.add_edge(self.curr_def, t.func.attr, weight=self.call_seq)
+                self.call_seq += 1
 
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
