@@ -1,10 +1,15 @@
+# How to choose instruction level?
+Default is low-level line by line translation
+λ:> python instructor.py -h sample_inputs/docstring.py
+which can generate instruction in high level
+
 # How to use dependency feature to re-organise output?
 
 Take *instructor.py* for example:
 
 Re-organise generated instructions in breadth-first order
 ```sh
-λ> python instructor.py -b sample_inputs/dependency.py
+λ:> python instructor.py -b sample_inputs/dependency.py
 ```
 
 Re-organise generated instructions in depth-first order

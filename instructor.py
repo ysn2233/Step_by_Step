@@ -35,7 +35,7 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    def __init__(self, tree, mode=Mode.none):
+    def __init__(self, tree, mode=Mode.none, level=1):
         """Initialise instructor."""
         self.instructions = []
         self.buf = cStringIO.StringIO()
@@ -56,6 +56,7 @@ class Unparser:
         self.curr_def = "header"
         self.end_def = False
         self.func_list = []
+        self.level = level
 
     def run(self):
         """Generate instructions."""
@@ -364,7 +365,14 @@ class Unparser:
             self.write(" with parameters ")
         self.dispatch(t.args)
         self.enter()
-        self.dispatch(t.body)
+        if (self.level == 0):
+            if (isinstance(t.body[0], ast.Expr)):
+                if (isinstance(t.body[0].value, ast.Str)):
+                    self.newline()
+                self.indent()
+                self.write(ast.get_docstring(t))
+        if (self.level == 1):
+            self.dispatch(t.body)
         self.func_name = " "
         self.leave()
 
@@ -707,24 +715,27 @@ class Unparser:
         if t.asname:
             self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.none):
+def roundtrip(filename, output=sys.stdout, mode=Mode.none, level=0):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree, mode).run()
+    instructions = Unparser(tree, mode, level).run()
     for i in instructions:
         output.write(i)
         output.write("\n")
 
 def main(args):
     if args[0] == '-n':
-        roundtrip(args[1], mode=Mode.none)
+        roundtrip(args[1], mode=Mode.none, level=1)
     elif args[0] == '-b':
-        roundtrip(args[1], mode=Mode.bfs)
+        roundtrip(args[1], mode=Mode.bfs, level=1)
     elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.dfs)
+        roundtrip(args[1], mode=Mode.dfs, level=1)
+    elif args[0] == '-h':
+        roundtrip(args[1], mode=Mode.none, level=0)
     else:
-        roundtrip(args[0])
+        roundtrip(args[0], mode=Mode.none, level=1)
+
 
 if __name__ == '__main__':
     main(sys.argv[1:])
