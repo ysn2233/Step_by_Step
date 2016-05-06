@@ -371,6 +371,7 @@ class Unparser:
                     self.newline()
                 self.indent()
                 self.write(ast.get_docstring(t))
+                self.newline()
         if (self.level == 1):
             self.dispatch(t.body)
         self.func_name = " "
@@ -733,12 +734,15 @@ def main(args):
         roundtrip(args[1], mode=Mode.dfs, level=1)
     elif args[0] == '-h':
         roundtrip(args[1], mode=Mode.none, level=0)
+        return 1
     else:
         roundtrip(args[0], mode=Mode.none, level=1)
+    return 0
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
-    print('-------------------\n')
-    for i in Dict:
-        print i, Dict[i]
+    ifstat = main(sys.argv[1:])
+    if (ifstat==0):
+        print('-------------------\n')
+        for i in Dict:
+            print i, Dict[i]
