@@ -663,8 +663,9 @@ class Unparser:
         if isinstance(t.func, ast.Attribute):
             temp = self.have_template(t.func.value.id, t.func.attr)
             if temp != "NotFound":
-                self.write(t.func.value.id)
-                self.write(" ")
+                if (self.no_direct_call == False):
+                    self.write(t.func.value.id)
+                    self.write(" ")
                 self.write(temp)
                 self.special_output = True 
         if (self.special_output == False):
