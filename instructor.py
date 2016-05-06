@@ -37,6 +37,7 @@ class Unparser:
 
     def __init__(self, tree, mode=Mode.none, level=1):
         """Initialise instructor."""
+        self.var = {}
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
@@ -46,6 +47,7 @@ class Unparser:
         self.variables = []
         self.func_name = " "
         self.no_direct_call = False
+        self.special_output = False
         self.import_module = False
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
@@ -109,7 +111,21 @@ class Unparser:
             return
         meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
-
+    
+    def have_template(self, name, method):
+        if self.var.has_key(name):
+            name = self.var[name]
+        method = method + "#"
+        filename = "./template/" + name + ".txt"
+        if os.path.exists(filename):
+            f = open(filename, 'r')
+            for line in f:
+                line = line.strip().split('-')
+                if method == line[0]:
+                    f.close()
+                    return line[1]
+            f.close()
+        return "NotFound"
     def dep_bfs(self, source):
         dist = {source:0}
         groups = [[source]]
@@ -245,6 +261,11 @@ class Unparser:
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
+
+        if isinstance(t.value, ast.Call):
+            for target in t.targets:
+                self.var[target.id] = t.value.func.value.id
+
 
     def _AugAssign(self, t):
         # Jack's implementation
@@ -639,22 +660,32 @@ class Unparser:
                 self.dispatch(t.args[2])
             return
         # special requirement on range([start], stop[, step])sub
-        if (self.no_direct_call == True):
-            self.write ("return value of function ")
-            # self.no_direct_call = False;
-        else:
-            self.write("Call function ")
-        if isinstance(t.func, ast.Name):
-            self.write("'")
-        self.dispatch(t.func)
-        if isinstance(t.func, ast.Name):
-            self.write("'")
-        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-            self.write(" recursively")
+        if isinstance(t.func, ast.Attribute):
+            temp = self.have_template(t.func.value.id, t.func.attr)
+            if temp != "NotFound":
+                self.write(t.func.value.id)
+                self.write(" ")
+                self.write(temp)
+                self.special_output = True 
+        if (self.special_output == False):
+            if (self.no_direct_call == True):
+                self.write ("return value of function ")
+                # self.no_direct_call = False;
+            else:
+                self.write("Call function ")
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            self.dispatch(t.func)
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+                self.write(" recursively")
+        self.special_output = False
         comma = False
         # handle cases of no arguments
         if len(t.args) + len(t.keywords) == 0:
-            self.write(" without arguments")
+            self.write("")
+            # self.write(" without arguments")
         elif len(t.args) + len(t.keywords) == 1:
             self.write(" with an argument ")
         else:
