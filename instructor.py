@@ -188,7 +188,14 @@ class Unparser:
                 if method == line[0]:
                     f.close()
                     return line[1]
-            f.close()
+        return "NotFound"
+
+    def find_template(self, name, method):
+        if self.var_list.has_key(name):
+            name = self.var_list[name]
+        if self.tml_list.has_key(name):
+            if self.tml_list[name].has_key(method):
+                return self.tml_list[name][method]
         return "NotFound"
 
     def import_template(self, module):
@@ -284,8 +291,13 @@ class Unparser:
                 self.dispatch(target)
 
         if isinstance(t.value, ast.Call):
-            for target in t.targets:
-                self.var_list[target.id] = t.value.func.value.id
+            if self.tml_list.has_key(t.value.func.value.id):
+                if self.tml_list[t.value.func.value.id].has_key(t.value.func.attr):
+                    sign = self.tml_list[t.value.func.value.id][t.value.func.attr]
+                    sign = sign.split(" ", 2)
+                    if sign[0] == "create":
+                        for target in t.targets:
+                            self.var_list[target.id] = t.value.func.value.id
 
     def _AugAssign(self, t):
         # Jack's implementation
@@ -454,9 +466,12 @@ class Unparser:
             Dict['If'] = 1
 
         self.indent()
-        self.write("If ")
-        self.dispatch(t.test)
-        self.write(", do the following")
+        if t.test.comparators[0].s == "__main__":
+            self.write ("Main function! (programe starts here)")
+        else :
+            self.write("If ")
+            self.dispatch(t.test)
+            self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -697,45 +712,74 @@ class Unparser:
                 self.dispatch(t.args[2])
             return
         # special requirement on range([start], stop[, step])sub
+
+        # manage special template output
+        temp = " "
         if isinstance(t.func, ast.Attribute):
-            temp = self.have_template(t.func.value.id, t.func.attr)
+            temp = self.find_template(t.func.value.id, t.func.attr)
             if temp != "NotFound":
-                if (self.no_direct_call == False):
-                    self.write(t.func.value.id)
-                    self.write(" ")
+                temp = temp.replace("[obj]", t.func.value.id)
+                count = 1
+                for e in t.args:
+                    para = " "
+                    arg = "[arg"+str(count)+"]"
+                    if isinstance(e, ast.Num):
+                        para = str(e.n)
+                    elif isinstance(e, ast.Str):
+                        para = e.s
+                    elif isinstance(e, ast.Name):
+                        para = "'"+e.id+"'"
+                    elif isinstance(e, ast.BinOp):
+                        left = " "
+                        right = " "
+                        if isinstance(e.left, ast.Num):
+                            left = str(e.left.n)
+                        elif isinstance(e.left, ast.Str):
+                            left = e.left.s
+                        elif isinstance(e.left, ast.Name):
+                            left = e.left.id
+                        if isinstance(e.right, ast.Num):
+                            right = str(e.right.n)
+                        elif isinstance(e.right, ast.Str):
+                            right = e.right.s
+                        elif isinstance(e.right, ast.Name):
+                            right = e.right.id
+                        para = "'"+left+" "+self.binop[e.op.__class__.__name__]+" "+right+"'"
+                    temp = temp.replace(arg, para)
+                    count = count + 1
                 self.write(temp)
                 self.special_output = True
-        if (self.special_output == False):
-            if (self.no_direct_call == True):
-                self.write ("return value of function ")
-                # self.no_direct_call = False;
-            else:
-                self.write("Call function ")
-            if isinstance(t.func, ast.Name):
-                self.write("'")
-            self.dispatch(t.func)
-            if isinstance(t.func, ast.Name):
-                self.write("'")
-            if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-                self.write(" recursively")
-        self.special_output = False
-        comma = False
-        # handle cases of no arguments
-        if len(t.args) + len(t.keywords) == 0:
-            self.write("")
-            # self.write(" without arguments")
-        elif len(t.args) + len(t.keywords) == 1:
-            self.write(" with an argument ")
         else:
-            self.write(" with arguments ")
-        for e in t.args:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
-        for e in t.keywords:
-            if comma: self.write(", ")
-            else: comma = True
-            self.dispatch(e)
+            if (self.special_output == False):
+                if (self.no_direct_call == True):
+                    self.write ("return value of function ")
+                else:
+                    self.write("Call function ")
+                if isinstance(t.func, ast.Name):
+                    self.write("'")
+                self.dispatch(t.func)
+                if isinstance(t.func, ast.Name):
+                    self.write("'")
+                if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+                    self.write(" recursively")
+            comma = False
+            # handle cases of no arguments
+            if len(t.args) + len(t.keywords) == 0:
+                self.write("")
+                # self.write(" without arguments")
+            elif len(t.args) + len(t.keywords) == 1:
+                self.write(" with an argument ")
+            else:
+                self.write(" with arguments ")
+            for e in t.args:
+                if comma: self.write(", ")
+                else: comma = True
+                self.dispatch(e)
+            for e in t.keywords:
+                if comma: self.write(", ")
+                else: comma = True
+                self.dispatch(e)
+        self.special_output = False
 
     def _Subscript(self, t):
         self.dispatch(t.value)
