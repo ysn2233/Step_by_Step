@@ -26,9 +26,21 @@ def main(args):
     code_lines = [l for l in unparse.Unparser(tree, mode).run()]
     instructions = [i for i in instructor.Unparser(tree, mode).run()]
 
-    res = [{"code": l, "instruction": i} for (l, i) in
+    res = [{"code": l, "text": i} for (l, i) in
            zip(code_lines, instructions)]
-    json.dump(res, sys.stdout, indent=4)
+
+    turinglab_json = {"name": fn.split('/')[-1],
+                      "description": "POST EDIT",
+                      "steps": []
+                      }
+    for each in res:
+        step = {}
+        step['name'] = 'POST EDIT'
+        step['description'] = 'POST EDIT'
+        step['components'] = each
+        turinglab_json['steps'].append(step)
+
+    json.dump(turinglab_json, sys.stdout, indent=4)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

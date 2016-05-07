@@ -35,8 +35,9 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    def __init__(self, tree, mode=Mode.normal):
+    def __init__(self, tree, mode=Mode.normal, level=1):
         """Initialise instructor."""
+        self.var = {}
         self.instructions = []
         self.buf = cStringIO.StringIO()
         self.tree = tree
@@ -46,6 +47,7 @@ class Unparser:
         self.variables = []
         self.func_name = " "
         self.no_direct_call = False
+        self.special_output = False
         self.import_module = False
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
@@ -58,6 +60,7 @@ class Unparser:
         self.stat_seq = 1
         self.comp_stat = False
         self.func_def = False
+        self.level = level
 
     def run(self):
         """Generate instructions."""
@@ -142,6 +145,22 @@ class Unparser:
     def leave_def(self):
         if self.indents == 0:
             self.func_def = False
+    
+    def have_template(self, name, method):
+        if self.var.has_key(name):
+            name = self.var[name]
+        method = method + "#"
+        filename = "./template/" + name + ".txt"
+        if os.path.exists(filename):
+            f = open(filename, 'r')
+            for line in f:
+                line = line.strip().split('-')
+                if method == line[0]:
+                    f.close()
+                    return line[1]
+            f.close()
+        return "NotFound"
+
 
     def dep_dfs(self, source):
         self.colour[source] = Colour.grey
@@ -246,6 +265,10 @@ class Unparser:
             self.write(" to variable ")
             for target in t.targets:
                 self.dispatch(target)
+
+        if isinstance(t.value, ast.Call):
+            for target in t.targets:
+                self.var[target.id] = t.value.func.value.id
 
     def _AugAssign(self, t):
         # Jack's implementation
@@ -367,7 +390,15 @@ class Unparser:
             self.write(" with parameters ")
         self.dispatch(t.args)
         self.enter()
-        self.dispatch(t.body)
+        if (self.level == 0):
+            if (isinstance(t.body[0], ast.Expr)):
+                if (isinstance(t.body[0].value, ast.Str)):
+                    self.newline()
+                self.indent()
+                self.write(ast.get_docstring(t))
+                self.newline()
+        if (self.level == 1):
+            self.dispatch(t.body)
         self.func_name = " "
         self.leave()
 
@@ -649,22 +680,33 @@ class Unparser:
                 self.dispatch(t.args[2])
             return
         # special requirement on range([start], stop[, step])sub
-        if (self.no_direct_call == True):
-            self.write ("return value of function ")
-            # self.no_direct_call = False;
-        else:
-            self.write("Call function ")
-        if isinstance(t.func, ast.Name):
-            self.write("'")
-        self.dispatch(t.func)
-        if isinstance(t.func, ast.Name):
-            self.write("'")
-        if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-            self.write(" recursively")
+        if isinstance(t.func, ast.Attribute):
+            temp = self.have_template(t.func.value.id, t.func.attr)
+            if temp != "NotFound":
+                if (self.no_direct_call == False):
+                    self.write(t.func.value.id)
+                    self.write(" ")
+                self.write(temp)
+                self.special_output = True 
+        if (self.special_output == False):
+            if (self.no_direct_call == True):
+                self.write ("return value of function ")
+                # self.no_direct_call = False;
+            else:
+                self.write("Call function ")
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            self.dispatch(t.func)
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+                self.write(" recursively")
+        self.special_output = False
         comma = False
         # handle cases of no arguments
         if len(t.args) + len(t.keywords) == 0:
-            self.write(" without arguments")
+            self.write("")
+            # self.write(" without arguments")
         elif len(t.args) + len(t.keywords) == 1:
             self.write(" with an argument ")
         else:
@@ -726,11 +768,11 @@ class Unparser:
         if t.asname:
             self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.normal):
+def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=1):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree, mode).run()
+    instructions = Unparser(tree, mode, level).run()
     for i in instructions:
         output.write(i)
         output.write("\n")
@@ -739,12 +781,18 @@ def main(args):
     if args[0] == '-n':
         roundtrip(args[1], mode=Mode.normal)
     elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.depend)
+        roundtrip(args[1], mode=Mode.depend, level=1)
+    elif args[0] == '-h':
+        roundtrip(args[1], mode=Mode.normal, level=0)
+        return 1
     else:
-        roundtrip(args[0])
+        roundtrip(args[0], mode=Mode.normal, level=1)
+    return 0
+
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
-    print('-------------------\n')
-    for i in Dict:
-        print i, Dict[i]
+    ifstat = main(sys.argv[1:])
+    if (ifstat==0):
+        print('-------------------\n')
+        for i in Dict:
+            print i, Dict[i]

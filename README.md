@@ -1,3 +1,8 @@
+# How to choose instruction level?
+Default is low-level line by line translation
+λ:> python instructor.py -h sample_inputs/docstring.py
+which can generate instruction in high level
+
 # How to use dependency feature to re-organise output?
 
 Take *instructor.py* for example:
