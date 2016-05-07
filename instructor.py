@@ -4,7 +4,7 @@
 # originally from official python source code
 # http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
 
-"Usage: instructor.py [-n|b|d] <path to source file>"
+"Usage: instructor.py [-n|d] <path to source file>"
 import sys
 import ast
 import cStringIO
@@ -35,7 +35,7 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    def __init__(self, tree, mode=Mode.none):
+    def __init__(self, tree, mode=Mode.normal):
         """Initialise instructor."""
         self.instructions = []
         self.buf = cStringIO.StringIO()
@@ -49,13 +49,15 @@ class Unparser:
         self.import_module = False
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
-        self.dep_graph.add_node("header")
-        self.call_seq = 1
+        self.curr_vert = ""
         self.curr_buf = cStringIO.StringIO()
-        self.buf_list = {"header": self.curr_buf}
-        self.curr_def = "header"
-        self.end_def = False
-        self.func_list = []
+        self.buf_list = {}
+        self.stat_list = []
+        self.call_list = []
+        self.out_list = []
+        self.stat_seq = 1
+        self.comp_stat = False
+        self.func_def = False
 
     def run(self):
         """Generate instructions."""
@@ -71,14 +73,29 @@ class Unparser:
             self.no_newline = False
             return
         self.write("\n")
+
         # code for function dependency
-        if self.end_def:
-            self.dep_graph.add_node("footer")
-            self.call_seq = 1
-            self.curr_buf = cStringIO.StringIO()
-            self.buf_list["footer"] = self.curr_buf
-            self.curr_def = "footer"
-            self.end_def = False
+        if self.curr_vert == "":
+            if not self.comp_stat:
+                self.curr_vert = "_stat_" + str(self.stat_seq) + "_"
+                self.dep_graph.add_node(self.curr_vert)
+                self.buf_list[self.curr_vert] = self.curr_buf
+                self.curr_buf = cStringIO.StringIO()
+                self.stat_list.append(self.curr_vert)
+                for i in range(0, len(self.call_list)):
+                    self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.curr_vert = ""
+                self.call_list = []
+                self.stat_seq += 1
+        else:
+            if not self.func_def:
+                self.dep_graph.add_node(self.curr_vert)
+                self.buf_list[self.curr_vert] = self.curr_buf
+                self.curr_buf = cStringIO.StringIO()
+                for i in range(0, len(self.call_list)):
+                    self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.curr_vert = ""
+                self.call_list = []
 
     def indent(self):
         """Write appropriate indentation."""
@@ -109,28 +126,22 @@ class Unparser:
         meth = getattr(self, "_" + tree.__class__.__name__)
         meth(tree)
 
-    def dep_bfs(self, source):
-        dist = {source:0}
-        groups = [[source]]
-        nodes = self.dep_graph.nodes()
-        colour = dict(zip(nodes, [Colour.white] * len(nodes)))
-        queue = Queue.Queue()
-        queue.put(source)
-        while not queue.empty():
-            edges = self.dep_graph.edges(queue.get(), "weight")
-            edges = sorted(edges, key=lambda t:t[2])
-            for e in edges:
-                if colour[e[1]] == Colour.white:
-                    dist[e[1]] = dist[e[0]] + 1
-                    if dist[e[1]] >= len(groups):
-                        groups.append([e[1]])
-                    else:
-                        groups[dist[e[1]]].append(e[1])
-                    colour[e[1]] = Colour.grey
-                    queue.put(e[1])
-            colour[e[1]] = Colour.black
-        for g in groups[::-1]:
-            self.func_list.extend(g)
+    def enter_comp(self):
+        if self.indents == 0:
+            self.comp_stat = True
+
+    def leave_comp(self):
+        if self.indents == 0:
+            self.comp_stat = False
+
+    def enter_def(self, name):
+        if self.indents == 0:
+            self.curr_vert = name
+            self.func_def = True
+
+    def leave_def(self):
+        if self.indents == 0:
+            self.func_def = False
 
     def dep_dfs(self, source):
         self.colour[source] = Colour.grey
@@ -140,30 +151,21 @@ class Unparser:
             if self.colour[e[1]] == Colour.white:
                 self.dep_dfs(e[1])
         self.colour[source] = Colour.black
-        self.func_list.append(source)
+        self.out_list.append(source)
 
     def search(self):
-        if (self.mode == Mode.none or
-            not self.dep_graph.has_node("footer") or
-            self.dep_graph.out_degree("footer") == 0):
-            return
-
-        self.func_list = ["header"]
-        if self.mode == Mode.bfs:
-            self.dep_bfs("footer")
-        elif self.mode == Mode.dfs:
+        if (self.mode == Mode.depend):
             nodes = self.dep_graph.nodes()
             self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
-            self.dep_dfs("footer")
-        else:
-            assert False, "shouldn't get here"
+            for s in self.stat_list:
+                self.dep_dfs(s)
 
     def flush(self):
-        if not self.func_list:
+        if not self.out_list:
             self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
             return
 
-        for func in self.func_list:
+        for func in self.out_list:
             if not self.buf_list.has_key(func):
                 continue
             self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
@@ -314,6 +316,9 @@ class Unparser:
         self.no_direct_call = False
 
     def _ClassDef(self, t):
+        # code for function dependency
+        self.enter_comp()
+
         if Dict.has_key('ClassDef'):
             Dict['ClassDef'] = Dict['ClassDef'] + 1
         else:
@@ -339,14 +344,12 @@ class Unparser:
         self.dispatch(t.body)
         self.leave()
 
+        # code for function dependency
+        self.leave_comp()
+
     def _FunctionDef(self, t):
         # code for function dependency
-        if self.curr_def == "header":
-            self.curr_buf = cStringIO.StringIO()
-        else:
-            self.buf_list["footer"] = None
-        self.buf_list[t.name] = self.curr_buf
-        self.curr_def = t.name
+        self.enter_def(t.name)
 
         if Dict.has_key('FunctionDef'):
             Dict['FunctionDef'] = Dict['FunctionDef'] + 1
@@ -369,9 +372,12 @@ class Unparser:
         self.leave()
 
         # code for function dependency
-        self.end_def = True
+        self.leave_def()
 
     def _For(self, t):
+        # code for function dependency
+        self.enter_comp()
+
         if Dict.has_key('For'):
             Dict['For'] = Dict['For'] + 1
         else:
@@ -387,7 +393,13 @@ class Unparser:
         self.dispatch(t.body)
         self.leave()
 
+        # code for function dependency
+        self.leave_comp()
+
     def _If(self, t):
+        # code for function dependency
+        self.enter_comp()
+
         if Dict.has_key('If'):
             Dict['If'] = Dict['If'] + 1
         else:
@@ -421,7 +433,13 @@ class Unparser:
             self.dispatch(t.orelse)
             self.leave()
 
+        # code for function dependency
+        self.leave_comp()
+
     def _While(self, t):
+        # code for function dependency
+        self.enter_comp()
+
         if Dict.has_key('While'):
             Dict['While'] = Dict['While'] + 1
         else:
@@ -434,6 +452,9 @@ class Unparser:
         self.enter()
         self.dispatch(t.body)
         self.leave()
+
+        # code for function dependency
+        self.leave_comp()
 
     # expr
     def _Str(self, tree):
@@ -600,13 +621,11 @@ class Unparser:
     def _Call(self, t):
         # code for function dependency
         if isinstance(t.func, ast.Name):
-            if not self.dep_graph.has_edge(self.curr_def, t.func.id):
-                self.dep_graph.add_edge(self.curr_def, t.func.id, weight=self.call_seq)
-                self.call_seq += 1
+            if t.func.id not in self.call_list:
+                self.call_list.append(t.func.id)
         elif isinstance(t.func, ast.Attribute):
-            if not self.dep_graph.has_edge(self.curr_def, t.func.attr):
-                self.dep_graph.add_edge(self.curr_def, t.func.attr, weight=self.call_seq)
-                self.call_seq += 1
+            if t.func.attr not in self.call_list:
+                self.call_list.append(t.func.attr)
 
         # special requirement on range([start], stop[, step])
         if isinstance(t.func, ast.Name) and t.func.id == "range":
@@ -707,7 +726,7 @@ class Unparser:
         if t.asname:
             self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.none):
+def roundtrip(filename, output=sys.stdout, mode=Mode.normal):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
@@ -718,11 +737,9 @@ def roundtrip(filename, output=sys.stdout, mode=Mode.none):
 
 def main(args):
     if args[0] == '-n':
-        roundtrip(args[1], mode=Mode.none)
-    elif args[0] == '-b':
-        roundtrip(args[1], mode=Mode.bfs)
+        roundtrip(args[1], mode=Mode.normal)
     elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.dfs)
+        roundtrip(args[1], mode=Mode.depend)
     else:
         roundtrip(args[0])
 

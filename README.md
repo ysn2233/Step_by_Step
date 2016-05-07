@@ -2,17 +2,12 @@
 
 Take *instructor.py* for example:
 
-Re-organise generated instructions in breadth-first order
-```sh
-λ> python instructor.py -b sample_inputs/dependency.py
-```
-
-Re-organise generated instructions in depth-first order
+Re-organise generated instructions in dependency order
 ```sh
 λ> python instructor.py -d sample_inputs/dependency.py
 ```
 
-Keep generated instructions in orignal order
+Keep generated instructions in original order
 ```sh
 λ> python instructor.py sample_inputs/dependency.py
 ```

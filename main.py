@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: main.py [-n|b|d] <path to source file>"
+"Usage: main.py [-n|d] <path to source file>"
 import unparse
 import instructor
 import cStringIO
@@ -11,16 +11,13 @@ import json
 
 def main(args):
     if args[0] == '-n':
-        mode = unparse.Mode.none
-        fn = args[1]
-    elif args[0] == '-b':
-        mode = unparse.Mode.bfs
+        mode = unparse.Mode.normal
         fn = args[1]
     elif args[0] == '-d':
-        mode = unparse.Mode.dfs
+        mode = unparse.Mode.depend
         fn = args[1]
     else:
-        mode = unparse.Mode.none
+        mode = unparse.Mode.normal
         fn = args[0]
 
     with open(fn, "r") as f:
