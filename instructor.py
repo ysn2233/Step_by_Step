@@ -9,12 +9,12 @@ import sys
 import ast
 import cStringIO
 import os
-import json
 import networkx
 from unparse import Mode
 from unparse import Colour
 from unparse import Level
 import Queue
+import re
 
 Dict = {}
 
@@ -62,6 +62,8 @@ class Unparser:
         self.comp_stat = False
         self.func_def = False
         self.level = level
+        self.tml_list = {}
+        self.var_list = {}
 
     def run(self):
         """Generate instructions."""
@@ -146,22 +148,6 @@ class Unparser:
     def leave_def(self):
         if self.indents == 0:
             self.func_def = False
-    
-    def have_template(self, name, method):
-        if self.var.has_key(name):
-            name = self.var[name]
-        method = method + "#"
-        filename = "./template/" + name + ".txt"
-        if os.path.exists(filename):
-            f = open(filename, 'r')
-            for line in f:
-                line = line.strip().split('-')
-                if method == line[0]:
-                    f.close()
-                    return line[1]
-            f.close()
-        return "NotFound"
-
 
     def dep_dfs(self, source):
         self.colour[source] = Colour.grey
@@ -189,6 +175,36 @@ class Unparser:
             if not self.buf_list.has_key(func):
                 continue
             self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+
+    def have_template(self, name, method):
+        if self.var_list.has_key(name):
+            name = self.var_list[name]
+        method = method + "#"
+        filename = "./template/" + name + ".txt"
+        if os.path.exists(filename):
+            f = open(filename, 'r')
+            for line in f:
+                line = line.strip().split('-')
+                if method == line[0]:
+                    f.close()
+                    return line[1]
+            f.close()
+        return "NotFound"
+
+    def import_template(self, module):
+        filename = "./template/" + module + ".tml"
+        if not os.path.exists(filename):
+            return
+        with open(filename, 'r') as file:
+            self.tml_list[module] = {}
+            for line in file:
+                line = line.strip()
+                if (line[0] == '#'):
+                    continue
+                field_list = re.split(r'\s{2,}', line)
+                if len(field_list) < 2:
+                    continue
+                self.tml_list[module][field_list[0]] = field_list[1]
 
 
     ############### Unparsing methods ######################
@@ -269,7 +285,7 @@ class Unparser:
 
         if isinstance(t.value, ast.Call):
             for target in t.targets:
-                self.var[target.id] = t.value.func.value.id
+                self.var_list[target.id] = t.value.func.value.id
 
     def _AugAssign(self, t):
         # Jack's implementation
@@ -688,7 +704,7 @@ class Unparser:
                     self.write(t.func.value.id)
                     self.write(" ")
                 self.write(temp)
-                self.special_output = True 
+                self.special_output = True
         if (self.special_output == False):
             if (self.no_direct_call == True):
                 self.write ("return value of function ")
@@ -766,8 +782,11 @@ class Unparser:
         self.write(t.name)
         if self.import_module:
             self.write(" module")
+            self.import_template(t.name)
         if t.asname:
             self.write(" as " + t.asname)
+            if self.import_module and self.tml_list.has_key(t.name):
+                self.tml_list[t.asname] = self.tml_list.pop(t.name)
 
 def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=1):
     with open(filename, "r") as pyfile:

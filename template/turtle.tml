@@ -1,0 +1,6 @@
+# name                  template
+Turtle                  create a turtle
+forward                 move [obj] forward by [arg1] steps
+backward                move [obj] backward by [arg1] steps
+left                    turn [obj] left by [arg1] degrees
+right                   turn [obj] right by [arg1] degrees
