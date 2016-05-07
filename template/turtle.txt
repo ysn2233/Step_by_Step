@@ -1,6 +1,0 @@
-Turtle#-create a turtle
-setheading#-set its heading direction
-forward#-go forward
-backward#-go backward
-left#-turn left
-right#-turn right

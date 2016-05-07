@@ -5,7 +5,6 @@ import cStringIO
 import os
 import networkx
 import enum
-import Queue
 
 class Mode(enum.Enum):
     normal = 0
