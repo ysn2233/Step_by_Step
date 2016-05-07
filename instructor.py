@@ -13,6 +13,7 @@ import json
 import networkx
 from unparse import Mode
 from unparse import Colour
+from unparse import Level
 import Queue
 
 Dict = {}
@@ -35,7 +36,7 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded. """
 
-    def __init__(self, tree, mode=Mode.normal, level=1):
+    def __init__(self, tree, mode=Mode.normal, level=Level.low):
         """Initialise instructor."""
         self.var = {}
         self.instructions = []
@@ -390,14 +391,14 @@ class Unparser:
             self.write(" with parameters ")
         self.dispatch(t.args)
         self.enter()
-        if (self.level == 0):
+        if (self.level == Level.high):
             if (isinstance(t.body[0], ast.Expr)):
                 if (isinstance(t.body[0].value, ast.Str)):
                     self.newline()
                 self.indent()
                 self.write(ast.get_docstring(t))
                 self.newline()
-        if (self.level == 1):
+        if (self.level == Level.low):
             self.dispatch(t.body)
         self.func_name = " "
         self.leave()
@@ -779,14 +780,14 @@ def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=1):
 
 def main(args):
     if args[0] == '-n':
-        roundtrip(args[1], mode=Mode.normal)
+        roundtrip(args[1], mode=Mode.normal, level=Level.low)
     elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.depend, level=1)
-    elif args[0] == '-h':
-        roundtrip(args[1], mode=Mode.normal, level=0)
+        roundtrip(args[1], mode=Mode.depend, level=Level.low)
+    elif args[0] == '-hi':
+        roundtrip(args[1], mode=Mode.normal, level=Level.high)
         return 1
     else:
-        roundtrip(args[0], mode=Mode.normal, level=1)
+        roundtrip(args[0], mode=Mode.normal, level=Level.low)
     return 0
 
 

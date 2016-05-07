@@ -16,6 +16,10 @@ class Colour(enum.Enum):
     grey  = 1
     black = 2
 
+class Level(enum.Enum):
+    high = 1
+    low = 0
+
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
