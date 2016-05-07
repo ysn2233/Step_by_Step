@@ -239,20 +239,21 @@ class Unparser:
 
         self.import_module = True
         self.indent()
-        self.write("Import ")
+        self.write("Import the ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
+        self.import_module = False
         if t.module and t.module == '__future__':
             self.future_imports.extend(n.name for n in t.names)
 
-        self.import_module = False
         self.indent()
-        self.write("From ")
+        self.write("From the ")
         self.write("." * t.level)
         if t.module:
-            self.write("module '" + t.module + "'")
+            self.write(t.module)
+            self.write(" module")
         self.write(" import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
@@ -465,7 +466,7 @@ class Unparser:
             Dict['If'] = 1
 
         self.indent()
-        if t.test.comparators[0].s == "__main__":
+        if isinstance(t.test.comparators[0], ast.Str) and t.test.comparators[0].s == "__main__":
             self.write ("Main function! (programe starts here)")
         else :
             self.write("If ")
@@ -822,13 +823,12 @@ class Unparser:
         self.dispatch(t.value)
 
     def _alias(self, t):
+        self.write(t.name)
         if self.import_module:
-            self.write("module ")
-        self.write("'" + t.name + "'")
-        if self.import_module:
+            self.write(" module")
             self.import_template(t.name)
         if t.asname:
-            self.write(" as '" + t.asname + "'")
+            self.write(" as " + t.asname)
             if self.import_module and self.tml_list.has_key(t.name):
                 self.tml_list[t.asname] = self.tml_list.pop(t.name)
 
