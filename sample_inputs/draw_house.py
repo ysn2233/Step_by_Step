@@ -36,7 +36,6 @@ def drawRoof(width,height):
 
 def drawWindow(width,height):
     "Draw a window of given width and height with a cross in the center"
-
     t.forward(width/2)
     t.left(90)
     t.forward(height)
@@ -56,9 +55,6 @@ def drawWindow(width,height):
     t.forward(height)
     t.left(90)
 
-
-
 if (__name__ == "__main__"):
     drawHouse()
     input()
-

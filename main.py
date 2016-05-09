@@ -1,30 +1,39 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: main.py [-n|d] <path to source file>"
+"Usage: main.py [-n|d] [-l|d] <path to source file>"
 import unparse
 import instructor
-import cStringIO
 import sys
 import ast
+import cStringIO
+import os
 import json
 
-def main(args):
-    if args[0] == '-n':
-        mode = unparse.Mode.normal
-        fn = args[1]
-    elif args[0] == '-d':
-        mode = unparse.Mode.depend
-        fn = args[1]
-    else:
-        mode = unparse.Mode.normal
-        fn = args[0]
+def main(argv):
+    if len(argv) < 1:
+        print __doc__
+        return
 
+    mode = unparse.Mode.normal
+    level = unparse.Level.low
+    for i in range(len(argv) - 1):
+        if argv[i] == "-n":
+            mode = unparse.Mode.normal
+        elif argv[i] == "-d":
+            mode = unparse.Mode.depend
+        elif argv[i] == "-l":
+            level = unparse.Level.low
+        elif argv[i] == "-h":
+            level = unparse.Level.high
+    fn = argv[-1]
+
+    assert os.path.exists(fn), "File doesn't exist: \"" + fn + "\""
     with open(fn, "r") as f:
         code = f.read()
     tree = ast.parse(code, fn, "exec")
-    code_lines = [l for l in unparse.Unparser(tree, mode).run()]
-    instructions = [i for i in instructor.Unparser(tree, mode).run()]
+    code_lines = [l for l in unparse.Unparser(tree, mode, level).run()]
+    instructions = [i for i in instructor.Unparser(tree, mode, level).run()]
 
     res = [{"code": l, "text": i} for (l, i) in
            zip(code_lines, instructions)]

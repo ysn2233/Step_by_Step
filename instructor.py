@@ -4,7 +4,7 @@
 # originally from official python source code
 # http://svn.python.org/view/*checkout*/python/trunk/Demo/parser/unparse.py
 
-"Usage: instructor.py [-n|d] <path to source file>"
+"Usage: instructor.py [-n|d] [-l|h] <path to source file>"
 import sys
 import ast
 import cStringIO
@@ -13,14 +13,12 @@ import networkx
 from unparse import Mode
 from unparse import Colour
 from unparse import Level
-import Queue
 import re
 
 Dict = {}
 
 def interleave(inter, f, seq):
-    """Call f on each item in seq, calling inter() in between.
-    """
+    "Call f on each item in seq, calling inter() in between."
     seq = iter(seq)
     try:
         f(next(seq))
@@ -34,21 +32,19 @@ def interleave(inter, f, seq):
 class Unparser:
     """Methods in this class recursively traverse an AST and
     output source code for the abstract syntax; original formatting
-    is disregarded. """
+    is disregarded."""
 
     def __init__(self, tree, mode=Mode.normal, level=Level.low):
-        """Initialise instructor."""
+        "Initialise instructor."
         self.var = {}
         self.instructions = []
-        self.buf = cStringIO.StringIO()
         self.tree = tree
         self.future_imports = []
         self.indents = 0
         self.no_newline = True
         self.variables = []
-        self.func_name = " "
+        self.func_name = ""
         self.no_direct_call = False
-        self.special_output = False
         self.import_module = False
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
@@ -62,11 +58,14 @@ class Unparser:
         self.comp_stat = False
         self.func_def = False
         self.level = level
-        self.tml_list = {}
+        self.docs_list = {}
+        self.mod_list = {}
         self.var_list = {}
+        self.from_mod = ""
 
     def run(self):
-        """Generate instructions."""
+        "Generate instructions."
+        self.imp_mod("_dflt_")
         self.dispatch(self.tree)
         self.newline()
         self.search()
@@ -74,7 +73,7 @@ class Unparser:
         return self.instructions
 
     def newline(self):
-        """End current code/instruction block."""
+        "End current code/instruction block."
         if self.no_newline:
             self.no_newline = False
             return
@@ -88,28 +87,35 @@ class Unparser:
                 self.buf_list[self.curr_vert] = self.curr_buf
                 self.curr_buf = cStringIO.StringIO()
                 self.stat_list.append(self.curr_vert)
-                for i in range(0, len(self.call_list)):
+                for i in range(len(self.call_list)):
                     self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.out_list.append(self.curr_vert)
                 self.curr_vert = ""
                 self.call_list = []
                 self.stat_seq += 1
         else:
             if not self.func_def:
                 self.dep_graph.add_node(self.curr_vert)
-                self.buf_list[self.curr_vert] = self.curr_buf
-                self.curr_buf = cStringIO.StringIO()
-                for i in range(0, len(self.call_list)):
+                if self.level == Level.high:
+                    self.buf_list[self.curr_vert] = cStringIO.StringIO()
+                    self.buf_list[self.curr_vert].write(self.curr_buf.getvalue().split("\n")[0] + "\n")
+                    self.buf_list[self.curr_vert].write(self.docs_list[self.curr_vert])
+                    self.curr_buf = cStringIO.StringIO()
+                else:
+                    self.buf_list[self.curr_vert] = self.curr_buf
+                    self.curr_buf = cStringIO.StringIO()
+                for i in range(len(self.call_list)):
                     self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.out_list.append(self.curr_vert)
                 self.curr_vert = ""
                 self.call_list = []
 
     def indent(self):
-        """Write appropriate indentation."""
+        "Write appropriate indentation."
         self.write("    " * self.indents)
 
     def write(self, text):
         "Append a piece of text to the current line."
-        self.buf.write(text)
         self.curr_buf.write(text)
 
     def enter(self):
@@ -161,57 +167,80 @@ class Unparser:
 
     def search(self):
         if (self.mode == Mode.depend):
+            self.out_list = []
             nodes = self.dep_graph.nodes()
             self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
             for s in self.stat_list:
                 self.dep_dfs(s)
 
     def flush(self):
-        if not self.out_list:
-            self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
-            return
-
-        for func in self.out_list:
-            if not self.buf_list.has_key(func):
+        for vert in self.out_list:
+            if not self.buf_list.has_key(vert):
                 continue
-            self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+            self.instructions.extend(self.buf_list[vert].getvalue().split("\n")[:-1])
 
-    def have_template(self, name, method):
-        if self.var_list.has_key(name):
-            name = self.var_list[name]
-        method = method + "#"
-        filename = "./template/" + name + ".txt"
-        if os.path.exists(filename):
-            f = open(filename, 'r')
-            for line in f:
-                line = line.strip().split('-')
-                if method == line[0]:
-                    f.close()
-                    return line[1]
-        return "NotFound"
+    def get_tml(self, mod, func):
+        if not self.mod_list.has_key(mod):
+            return ""
+        if not self.mod_list[mod].has_key(func):
+            return ""
+        return self.mod_list[mod][func]
 
-    def find_template(self, name, method):
-        if self.var_list.has_key(name):
-            name = self.var_list[name]
-        if self.tml_list.has_key(name):
-            if self.tml_list[name].has_key(method):
-                return self.tml_list[name][method]
-        return "NotFound"
-
-    def import_template(self, module):
-        filename = "./template/" + module + ".tml"
+    def imp_mod(self, mod, alias=""):
+        if alias == "":
+            alias = mod
+        filename = "./modules/" + mod + ".mod"
         if not os.path.exists(filename):
             return
-        with open(filename, 'r') as file:
-            self.tml_list[module] = {}
+        with open(filename, "r") as file:
+            self.mod_list[alias] = {}
+            line_cnt = 0
             for line in file:
+                line_cnt += 1
                 line = line.strip()
-                if (line[0] == '#'):
+                if line == "" or line[0] == "#":
                     continue
-                field_list = re.split(r'\s{2,}', line)
-                if len(field_list) < 2:
+                fields = re.split(r"\s{2,}", line)
+                assert len(fields) == 2, "Field error: file \"" + filename + "\", line " + str(line_cnt)
+                func_tml = fields[1]
+                arg_cnt = 0
+                while "[arg" + str(arg_cnt + 1) + "]" in func_tml:
+                    arg_cnt += 1
+                for arg_seq in range(1, arg_cnt + 1):
+                    tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
+                    assert len(tml_split) == 2, "Template error: file \"" + filename + "\", line " + str(line_cnt)
+                    func_tml = tml_split[1]
+                self.mod_list[alias][(fields[0], arg_cnt)] = fields[1]
+
+    def imp_func(self, mod, func, alias=""):
+        if alias == "":
+            alias = func
+        for key in self.mod_list["_dflt_"].keys():
+            if key[0] == alias:
+                mod_list["_dflt_"].pop(key)
+        filename = "./modules/" + mod + ".mod"
+        if not os.path.exists(filename):
+            return
+        with open(filename, "r") as file:
+            line_cnt = 0
+            for line in file:
+                line_cnt += 1
+                line = line.strip()
+                if line == "" or line[0] == "#":
                     continue
-                self.tml_list[module][field_list[0]] = field_list[1]
+                fields = re.split(r"\s{2,}", line)
+                assert len(fields) == 2, "Field error: file \"" + filename + "\", line " + str(line_cnt)
+                if fields[0] != func:
+                    continue
+                func_tml = fields[1]
+                arg_cnt = 0
+                while "[arg" + str(arg_cnt + 1) + "]" in func_tml:
+                    arg_cnt += 1
+                for arg_seq in range(1, arg_cnt + 1):
+                    tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
+                    assert len(tml_split) == 2, "Template error: file \"" + filename + "\", line " + str(line_cnt)
+                    func_tml = tml_split[1]
+                self.mod_list["_dflt_"][(alias, arg_cnt)] = fields[1]
 
 
     ############### Unparsing methods ######################
@@ -239,73 +268,136 @@ class Unparser:
 
         self.import_module = True
         self.indent()
-        self.write("Import the ")
+        self.write("Import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
 
     def _ImportFrom(self, t):
         # A from __future__ import may affect unparsing, so record it.
-        self.import_module = False
         if t.module and t.module == '__future__':
             self.future_imports.extend(n.name for n in t.names)
 
+        self.import_module = False
         self.indent()
-        self.write("From the ")
+        self.write("From ")
         self.write("." * t.level)
         if t.module:
-            self.write(t.module)
-            self.write(" module")
+            self.write("module '" + t.module + "'")
+            self.from_mod = t.module
         self.write(" import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
+        self.from_mod = ""
 
     def _Assign(self, t):
-        Init = False
+        init = False
         if isinstance(t.targets[0], ast.Name):
             for target in t.targets:
                 if not target.id in self.variables:
                     self.variables.append(target.id)
-                    Init = True
-        if Init:
-            if Dict.has_key('Variable'):
-                Dict['Variable'] = Dict['Variable'] + 1
-            else:
-                Dict['Variable'] = 1
+                    init = True
+        elif isinstance(t.targets[0], ast.Tuple):
+            for target in t.targets[0].elts:
+                if not target.id in self.variables:
+                    self.variables.append(target.id)
+                    init = True
 
+        if init:
+            Dict['Variable'] = len(self.variables)
             self.indent()
-            self.write("Initialise a variable ")
-            for target in t.targets:
-                self.write("\'")
-                self.dispatch(target)
-                self.write("\'")
+            self.write("Initialise ")
+            if isinstance(t.targets[0], ast.Name):
+                if len(t.targets) == 1:
+                    self.write("a variable ")
+                else:
+                    self.write("variables ")
+                comma = False
+                for target in t.targets:
+                    if comma: self.write(", ")
+                    else: comma = True
+                    self.write("'")
+                    self.dispatch(target)
+                    self.write("'")
+            else:
+                for target in t.targets:
+                    self.dispatch(t.targets)
             self.write(" to ")
-            if isinstance(t.value, ast.Call):
-                self.no_direct_call = True
+            self.no_direct_call = True
             self.dispatch(t.value)
             self.no_direct_call = False
-
         else:
             self.indent()
             self.write("Assign ")
+            self.no_direct_call = True
             self.dispatch(t.value)
-            self.write(" to variable ")
-            for target in t.targets:
-                self.dispatch(target)
+            self.no_direct_call = False
+            self.write(" to ")
+            if isinstance(t.targets[0], ast.Name):
+                if len(t.targets) == 1:
+                    self.write("variable ")
+                else:
+                    self.write("variables ")
+                comma = False
+                for target in t.targets:
+                    if comma: self.write(", ")
+                    else: comma = True
+                    self.write("'")
+                    self.dispatch(target)
+                    self.write("'")
+            else:
+                for target in t.targets:
+                    self.dispatch(target)
 
-        if isinstance(t.value, ast.Call):
-            if self.tml_list.has_key(t.value.func.value.id):
-                if self.tml_list[t.value.func.value.id].has_key(t.value.func.attr):
-                    sign = self.tml_list[t.value.func.value.id][t.value.func.attr]
-                    sign = sign.split(" ", 2)
-                    if sign[0] == "create":
-                        for target in t.targets:
-                            self.var_list[target.id] = t.value.func.value.id
+        # code for function templates
+        if (isinstance(t.value, ast.Name) and
+            self.var_list.has_key(t.value.id)):
+            if isinstance (t.targets[0], ast.Name):
+                for target in t.targets:
+                    self.var_list[target.id] = self.var_list[t.value.id]
+            elif isinstance(t.targets[0], ast.Tuple):
+                for target in t.targets[0].elts:
+                    self.var_list[target.id] = self.var_list[t.value.id]
+
+        # code for function templates
+        if (isinstance(t.value, ast.Call) and
+            isinstance(t.value.func, ast.Name)):
+            if isinstance(t.targets[0], ast.Name):
+                for target in t.targets:
+                    self.var_list[target.id] = "_dflt_"
+            elif isinstance(t.targets[0], ast.Tuple):
+                for target in t.targets[0].elts:
+                    self.var_list[target.id] = "_dflt_"
+
+        # code for function templates
+        if (isinstance(t.value, ast.Call) and
+            isinstance(t.value.func, ast.Attribute) and
+            isinstance(t.value.func.value, ast.Name) and
+            self.mod_list.has_key(t.value.func.value.id)):
+            if isinstance(t.targets[0], ast.Name):
+                for target in t.targets:
+                    self.var_list[target.id] = t.value.func.value.id
+            elif isinstance(t.targets[0], ast.Tuple):
+                for target in t.targets[0].elts:
+                    self.var_list[target.id] = t.value.func.value.id
+
+        # code for function templates
+        if isinstance(t.value, ast.Tuple):
+            for (value, target) in zip(t.value.elts, t.targets[0].elts):
+                if (isinstance(value, ast.Name) and
+                    self.var_list.has_key(value.id)):
+                    self.var_list[target.id] = self.var_list[value.id]
+                if (isinstance(value, ast.Call) and
+                    isinstance(t.value.func, ast.Name)):
+                    self.var_list[target.id] = "_dflt_"
+                if (isinstance(value, ast.Call) and
+                    isinstance(t.value.func, ast.Attribute) and
+                    isinstance(t.value.func.value, ast.Name) and
+                    self.mod_list.has_key(value.func.value.id)):
+                    self.var_list[target.id] = value.func.value.id
 
     def _AugAssign(self, t):
-        # Jack's implementation
         self.indent()
         self.write("The new value of ")
         self.dispatch(t.target)
         self.write(" is itself")
-        # self.dispatch(t.target)
         self.write(" " + self.binop[t.op.__class__.__name__] + " ")
         self.dispatch(t.value)
 
@@ -332,7 +424,7 @@ class Unparser:
             Dict['Continue'] = 1
 
         self.indent()
-        self.write("Skip the rest of the code inside the loop and continue on with the next iteration")
+        self.write("Skip the rest code inside the loop and continue with next iteration")
 
     def _Assert(self, t):
         if Dict.has_key('Assert'):
@@ -341,12 +433,10 @@ class Unparser:
             Dict['Assert'] = 1
 
         self.indent()
-        # self.write("Assert ")
         self.write("Check the condition of ")
         self.dispatch(t.test)
         self.write(" and if it is not ture, throw an exception ")
         if t.msg:
-            # self.write(", ")
             self.write("with the message ")
             self.dispatch(t.msg)
 
@@ -361,7 +451,7 @@ class Unparser:
         self.write("Print the result of ")
         do_comma = False
         for e in t.values:
-            if do_comma: self.write(', ')
+            if do_comma: self.write(", ")
             else: do_comma = True
             self.dispatch(e)
         self.write(" to screen")
@@ -378,20 +468,18 @@ class Unparser:
 
         self.indent()
         self.write("Define a class '" + t.name + "'")
-        do_comma = False
         if t.bases:
-            # self.write("(")
             if Dict.has_key('ClassDef_inherit'):
                 Dict['ClassDef_inherit'] = Dict['ClassDef_inherit'] + 1
             else:
                 Dict['ClassDef_inherit'] = 1
 
             self.write(", which inherits from ")
+            do_comma = False
             for a in t.bases:
                 if do_comma: self.write(", ")
                 else: do_comma = True
                 self.dispatch(a)
-        # self.write(")")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -419,16 +507,22 @@ class Unparser:
             self.write(" with parameters ")
         self.dispatch(t.args)
         self.enter()
-        if (self.level == Level.high):
-            if (isinstance(t.body[0], ast.Expr)):
-                if (isinstance(t.body[0].value, ast.Str)):
-                    self.newline()
-                self.indent()
-                self.write(ast.get_docstring(t))
-                self.newline()
-        if (self.level == Level.low):
+        if (isinstance(t.body[0], ast.Expr) and
+            isinstance(t.body[0].value, ast.Str)):
+            doc_str = ""
+            first_line = True
+            for line in ast.get_docstring(t).strip().split("\n"):
+                doc_str += "    " * self.indents
+                if first_line:
+                    doc_str += "   "
+                    first_line = False
+                doc_str += line.strip()
+                doc_str += "\n"
+            self.docs_list[t.name] = doc_str
+            self.dispatch(t.body[1:])
+        else:
             self.dispatch(t.body)
-        self.func_name = " "
+        self.func_name = ""
         self.leave()
 
         # code for function dependency
@@ -466,12 +560,9 @@ class Unparser:
             Dict['If'] = 1
 
         self.indent()
-        if isinstance(t.test.comparators[0], ast.Str) and t.test.comparators[0].s == "__main__":
-            self.write ("Main function! (programe starts here)")
-        else :
-            self.write("If ")
-            self.dispatch(t.test)
-            self.write(", do the following")
+        self.write("If ")
+        self.dispatch(t.test)
+        self.write(", do the following")
         self.enter()
         self.dispatch(t.body)
         self.leave()
@@ -617,12 +708,6 @@ class Unparser:
     def _UnaryOp(self, t):
         self.write("(")
         self.write(self.unop[t.op.__class__.__name__])
-        # self.write(" ")
-        # If we're applying unary minus to a number, parenthesize the number.
-        # This is necessary: -2147483648 is different from -(2147483648) on
-        # a 32-bit machine (the first is an int, the second a long), and
-        # -7j is different from -(7j).  (The first has real part 0.0, the second
-        # has real part -0.0.)
         if isinstance(t.op, ast.Not):
             self.write(" ")
             self.dispatch(t.operand)
@@ -668,18 +753,10 @@ class Unparser:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write("\'" + t.attr + "\'")
-        self.write(" on object \'")
+        self.write("'" + t.attr + "'")
+        self.write(" on object '")
         self.dispatch(t.value)
-        self.write("\'")
-        # self.dispatch(t.value)
-        # Special case: 3.__abs__() is a syntax error, so if t.value
-        # is an integer literal then we need to either parenthesize
-        # it or add an extra space to get 3 .__abs__().
-        # if isinstance(t.value, ast.Num) and isinstance(t.value.n, int):
-        #     self.write(" ")
-        # self.write(".")
-        # self.write(t.attr)
+        self.write("'")
 
     def _Call(self, t):
         # code for function dependency
@@ -690,87 +767,57 @@ class Unparser:
             if t.func.attr not in self.call_list:
                 self.call_list.append(t.func.attr)
 
-        # special requirement on range([start], stop[, step])
-        if isinstance(t.func, ast.Name) and t.func.id == "range":
-            cnt = 0
-            for e in t.args:
-                cnt += 1
-            if cnt == 1:
-                self.write("the range from 0 to ")
-                self.dispatch(t.args[0])
-            elif cnt == 2:
-                self.write("the range from ")
-                self.dispatch(t.args[0])
-                self.write(" to ")
-                self.dispatch(t.args[1])
+        # code for function templates
+        func_tml = ""
+        if isinstance(t.func, ast.Name):
+            func_tml = self.get_tml("_dflt_", (t.func.id, len(t.args) + len(t.keywords)))
+        elif (isinstance(t.func, ast.Attribute) and
+              isinstance(t.func.value, ast.Name)):
+            if self.var_list.has_key(t.func.value.id):
+                ref_mod = self.var_list[t.func.value.id]
             else:
-                self.write("the range from ")
-                self.dispatch(t.args[0])
-                self.write(" to ")
-                self.dispatch(t.args[1])
-                self.write(" with the step of ")
-                self.dispatch(t.args[2])
-            return
-        # special requirement on range([start], stop[, step])sub
+                ref_mod = t.func.value.id
+            func_tml = self.get_tml(ref_mod, (t.func.attr, len(t.args) + len(t.keywords)))
 
-        # manage special template output
-        temp = " "
-        if isinstance(t.func, ast.Attribute):
-            temp = self.find_template(t.func.value.id, t.func.attr)
-            if temp != "NotFound":
-                temp = temp.replace("[obj]", t.func.value.id)
-                count = 1
-                for e in t.args:
-                    para = " "
-                    arg = "[arg"+str(count)+"]"
-                    if isinstance(e, ast.Num):
-                        para = str(e.n)
-                    elif isinstance(e, ast.Str):
-                        para = e.s
-                    elif isinstance(e, ast.Name):
-                        para = "'"+e.id+"'"
-                    elif isinstance(e, ast.BinOp):
-                        left = " "
-                        right = " "
-                        if isinstance(e.left, ast.Num):
-                            left = str(e.left.n)
-                        elif isinstance(e.left, ast.Str):
-                            left = e.left.s
-                        elif isinstance(e.left, ast.Name):
-                            left = e.left.id
-                        if isinstance(e.right, ast.Num):
-                            right = str(e.right.n)
-                        elif isinstance(e.right, ast.Str):
-                            right = e.right.s
-                        elif isinstance(e.right, ast.Name):
-                            right = e.right.id
-                        para = "'"+left+" "+self.binop[e.op.__class__.__name__]+" "+right+"'"
-                    temp = temp.replace(arg, para)
-                    count = count + 1
-                self.write(temp)
-                self.special_output = True
+        # code for funciton templates
+        if func_tml != "":
+            if (isinstance(t.func, ast.Attribute) and
+                isinstance(t.func.value, ast.Name)):
+                func_tml = func_tml.replace("[obj]", t.func.value.id)
+            arg_seq = 0
+            for e in t.args:
+                arg_seq += 1
+                tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
+                self.write(tml_split[0])
+                func_tml = tml_split[1]
+                self.dispatch(e)
+            for e in t.keywords:
+                arg_seq += 1
+                tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
+                self.write(tml_split[0])
+                func_tml = tml_split[1]
+                self.dispatch(e)
+            self.write(func_tml)
         else:
-            if (self.special_output == False):
-                if (self.no_direct_call == True):
-                    self.write ("return value of function ")
-                else:
-                    self.write("Call function ")
-                if isinstance(t.func, ast.Name):
-                    self.write("'")
-                self.dispatch(t.func)
-                if isinstance(t.func, ast.Name):
-                    self.write("'")
-                if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
-                    self.write(" recursively")
-            comma = False
+            if self.no_direct_call:
+                self.write("return value of function ")
+            else:
+                self.write("Call function ")
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            self.dispatch(t.func)
+            if isinstance(t.func, ast.Name):
+                self.write("'")
+            if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
+                self.write(" recursively")
             # handle cases of no arguments
             if len(t.args) + len(t.keywords) == 0:
-                self.write("")
-                # self.write(" without arguments")
+                self.write(" without arguments")
             elif len(t.args) + len(t.keywords) == 1:
                 self.write(" with an argument ")
             else:
                 self.write(" with arguments ")
+            comma = False
             for e in t.args:
                 if comma: self.write(", ")
                 else: comma = True
@@ -779,7 +826,6 @@ class Unparser:
                 if comma: self.write(", ")
                 else: comma = True
                 self.dispatch(e)
-        self.special_output = False
 
     def _Subscript(self, t):
         self.dispatch(t.value)
@@ -823,16 +869,23 @@ class Unparser:
         self.dispatch(t.value)
 
     def _alias(self, t):
-        self.write(t.name)
         if self.import_module:
-            self.write(" module")
-            self.import_template(t.name)
-        if t.asname:
-            self.write(" as " + t.asname)
-            if self.import_module and self.tml_list.has_key(t.name):
-                self.tml_list[t.asname] = self.tml_list.pop(t.name)
+            self.write("module '" + t.name + "'")
+            if t.asname:
+                self.write(" as '" + t.asname + "'")
+                self.imp_mod(t.name, t.asname)
+            else:
+                self.imp_mod(t.name)
+        else:
+            self.write("'" + t.name + "'")
+            if t.asname:
+                self.write(" as '" + t.asname + "'")
+                self.imp_func(self.from_mod, t.name, t.asname)
+            else:
+                self.imp_func(self.from_mod, t.name)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=1):
+def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=Level.low):
+    assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
@@ -841,22 +894,27 @@ def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=1):
         output.write(i)
         output.write("\n")
 
-def main(args):
-    if args[0] == '-n':
-        roundtrip(args[1], mode=Mode.normal, level=Level.low)
-    elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.depend, level=Level.low)
-    elif args[0] == '-hi':
-        roundtrip(args[1], mode=Mode.normal, level=Level.high)
-        return 1
-    else:
-        roundtrip(args[0], mode=Mode.normal, level=Level.low)
-    return 0
+def main(argv):
+    if len(argv) < 1:
+        print __doc__
+        return
 
+    md = Mode.normal
+    lv = Level.low
+    for i in range(len(argv) - 1):
+        if argv[i] == "-n":
+            md = Mode.normal
+        elif argv[i] == "-d":
+            md = Mode.depend
+        elif argv[i] == "-l":
+            lv = Level.low
+        elif argv[i] == "-h":
+            lv = Level.high
+    roundtrip(argv[-1], mode=md, level=lv)
+
+    print('-------------------\n')
+    for i in Dict:
+        print i, Dict[i]
 
 if __name__ == '__main__':
-    ifstat = main(sys.argv[1:])
-    if (ifstat==0):
-        print('-------------------\n')
-        for i in Dict:
-            print i, Dict[i]
+    main(sys.argv[1:])

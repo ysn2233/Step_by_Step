@@ -1,4 +1,4 @@
-"Usage: unparse.py [-n|d] <path to source file>"
+"Usage: unparse.py [-n|d] [-l|h] <path to source file>"
 import sys
 import ast
 import cStringIO
@@ -16,16 +16,15 @@ class Colour(enum.Enum):
     black = 2
 
 class Level(enum.Enum):
-    high = 1
     low = 0
+    high = 1
 
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
 INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
 def interleave(inter, f, seq):
-    """Call f on each item in seq, calling inter() in between.
-    """
+    "Call f on each item in seq, calling inter() in between."
     seq = iter(seq)
     try:
         f(next(seq))
@@ -39,12 +38,11 @@ def interleave(inter, f, seq):
 class Unparser:
     """Methods in this class recursively traverse an AST and
     output source code for the abstract syntax; original formatting
-    is disregarded. """
+    is disregarded."""
 
-    def __init__(self, tree, mode=Mode.normal):
-        """Initialise unparser."""
+    def __init__(self, tree, mode=Mode.normal, level=Level.low):
+        "Initialise unparser."
         self.instructions = []
-        self.buf = cStringIO.StringIO()
         self.tree = tree
         self.future_imports = []
         self.indents = 0
@@ -60,9 +58,11 @@ class Unparser:
         self.stat_seq = 1
         self.comp_stat = False
         self.func_def = False
+        self.level = level
+        self.docs_list = {}
 
     def run(self):
-        """Generate code lines."""
+        "Generate code lines."
         self.dispatch(self.tree)
         self.newline()
         self.search()
@@ -70,7 +70,7 @@ class Unparser:
         return self.instructions
 
     def newline(self):
-        """End current code/instruction block."""
+        "End current code/instruction block."
         if self.no_newline:
             self.no_newline = False
             return
@@ -84,28 +84,35 @@ class Unparser:
                 self.buf_list[self.curr_vert] = self.curr_buf
                 self.curr_buf = cStringIO.StringIO()
                 self.stat_list.append(self.curr_vert)
-                for i in range(0, len(self.call_list)):
+                for i in range(len(self.call_list)):
                     self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.out_list.append(self.curr_vert)
                 self.curr_vert = ""
                 self.call_list = []
                 self.stat_seq += 1
         else:
             if not self.func_def:
                 self.dep_graph.add_node(self.curr_vert)
-                self.buf_list[self.curr_vert] = self.curr_buf
-                self.curr_buf = cStringIO.StringIO()
-                for i in range(0, len(self.call_list)):
+                if self.level == Level.high:
+                    self.buf_list[self.curr_vert] = cStringIO.StringIO()
+                    self.buf_list[self.curr_vert].write(self.curr_buf.getvalue().split("\n")[0] + "\n")
+                    self.buf_list[self.curr_vert].write(self.docs_list[self.curr_vert])
+                    self.curr_buf = cStringIO.StringIO()
+                else:
+                    self.buf_list[self.curr_vert] = self.curr_buf
+                    self.curr_buf = cStringIO.StringIO()
+                for i in range(len(self.call_list)):
                     self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
+                self.out_list.append(self.curr_vert)
                 self.curr_vert = ""
                 self.call_list = []
 
     def indent(self):
-        """Write appropriate indentation."""
+        "Write appropriate indentation."
         self.write("    " * self.indents)
 
     def write(self, text):
         "Append a piece of text to the current line."
-        self.buf.write(text)
         self.curr_buf.write(text)
 
     def enter(self):
@@ -157,20 +164,17 @@ class Unparser:
 
     def search(self):
         if (self.mode == Mode.depend):
+            self.out_list = []
             nodes = self.dep_graph.nodes()
             self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
             for s in self.stat_list:
                 self.dep_dfs(s)
 
     def flush(self):
-        if not self.out_list:
-            self.instructions.extend(self.buf.getvalue().split("\n")[:-1])
-            return
-
-        for func in self.out_list:
-            if not self.buf_list.has_key(func):
+        for vert in self.out_list:
+            if not self.buf_list.has_key(vert):
                 continue
-            self.instructions.extend(self.buf_list[func].getvalue().split("\n")[:-1])
+            self.instructions.extend(self.buf_list[vert].getvalue().split("\n")[:-1])
 
 
     ############### Unparsing methods ######################
@@ -409,7 +413,22 @@ class Unparser:
         self.dispatch(t.args)
         self.write(")")
         self.enter()
-        self.dispatch(t.body)
+        if (isinstance(t.body[0], ast.Expr) and
+            isinstance(t.body[0].value, ast.Str)):
+            doc_str = ""
+            first_line = True
+            for line in ast.get_docstring(t).strip().split("\n"):
+                doc_str += "    " * self.indents
+                if first_line:
+                    doc_str += "'''"
+                    first_line = False
+                doc_str += line.strip()
+                doc_str += "\n"
+            doc_str = doc_str[:-1] + "'''\n"
+            self.docs_list[t.name] = doc_str
+            self.dispatch(t.body[1:])
+        else:
+            self.dispatch(t.body)
         self.leave()
 
         # code for function dependency
@@ -777,22 +796,33 @@ class Unparser:
         if t.asname:
             self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.normal):
+def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=Level.low):
+    assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree, mode).run()
+    instructions = Unparser(tree, mode, level).run()
     for i in instructions:
         output.write(i)
         output.write("\n")
 
-def main(args):
-    if args[0] == '-n':
-        roundtrip(args[1], mode=Mode.normal)
-    elif args[0] == '-d':
-        roundtrip(args[1], mode=Mode.depend)
-    else:
-        roundtrip(args[0])
+def main(argv):
+    if len(argv) < 1:
+        print __doc__
+        return
+
+    md = Mode.normal
+    lv = Level.low
+    for i in range(len(argv) - 1):
+        if argv[i] == "-n":
+            md = Mode.normal
+        elif argv[i] == "-d":
+            md = Mode.depend
+        elif argv[i] == "-l":
+            lv = Level.low
+        elif argv[i] == "-h":
+            lv = Level.high
+    roundtrip(argv[-1], mode=md, level=lv)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

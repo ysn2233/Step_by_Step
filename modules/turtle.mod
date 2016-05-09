@@ -1,9 +1,9 @@
-# name                  template
+#Function               Template
 Turtle                  create a turtle
 forward                 Move [obj] forward by [arg1] steps
 backward                Move [obj] backward by [arg1] steps
 left                    Turn [obj] left by [arg1] degrees
 right                   Turn [obj] right by [arg1] degrees
-goto			Move [obj] to location ([arg1], [arg2])
-penup			Pull the pen up
-pendown			Pull the pen down
+goto                    Move [obj] to location ([arg1], [arg2])
+penup                   Pull the pen up
+pendown                 Pull the pen down
