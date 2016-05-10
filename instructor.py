@@ -218,7 +218,8 @@ class Unparser:
     def imp_mod(self, mod, alias=""):
         if not alias:
             alias = mod
-        filename = "./modules/" + mod + ".mod"
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
@@ -240,7 +241,8 @@ class Unparser:
         for sign in self.mod_list["_dflt_"].keys():
             if sign[0] == alias:
                 self.mod_list["_dflt_"].pop(sign)
-        filename = "./modules/" + mod + ".mod"
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
