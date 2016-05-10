@@ -912,7 +912,7 @@ def main(argv):
         print __doc__
         return
 
-    md = Mode.normal
+    md = Mode.depend
     lv = Level.low
     for i in range(len(argv) - 1):
         if argv[i] == "-n":

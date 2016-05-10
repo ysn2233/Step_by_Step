@@ -15,7 +15,7 @@ def main(argv):
         print __doc__
         return
 
-    mode = unparse.Mode.normal
+    mode = unparse.Mode.depend
     level = unparse.Level.low
     for i in range(len(argv) - 1):
         if argv[i] == "-n":
