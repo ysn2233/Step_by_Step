@@ -760,7 +760,7 @@ class Unparser:
         for a,d in zip(t.args, defaults):
             if first:first = False
             else: self.write(", ")
-            self.dispatch(a),
+            self.dispatch(a)
             if d:
                 self.write("=")
                 self.dispatch(d)

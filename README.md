@@ -1,7 +1,23 @@
-# How to choose instruction level?
-Default is low-level line by line translation
-λ:> python instructor.py -h sample_inputs/docstring.py
-which can generate instruction in high level
+# How to generate low/high level instrucitons?
+
+Take *instructor.py* for example:
+
+Generate low level instructions:
+```sh
+λ> python instructor.py sample_inputs/docstring.py
+```
+Or
+```sh
+λ> python instructor.py -l sample_inputs/docstring.py
+```
+
+Generate high level instructions:
+```sh
+λ> python instructor.py -h sample_inputs/docstring.py
+```
+
+Note: The output of *main.py* and *unparse.py* can now be handled in a
+similar way.
 
 # How to use dependency feature to re-organise output?
 
@@ -21,7 +37,8 @@ Or
 λ> python instructor.py -n sample_inputs/dependency.py
 ```
 
-Note: The output of *main.py* and *unparse.py* can now be handled in a similar way.
+Note: The output of *main.py* and *unparse.py* can now be handled in a
+similar way.
 
 # How to create and run a test case to cover a particular method in instructor.py?
 
@@ -45,27 +62,31 @@ that you can refer to.
 
 # Demo of dumping json to stdout
 ```sh
-λ> python main.py sample_inputs/circle.py 
+λ> python main.py sample_inputs/circle.py
 [
     {
-        "code": "import turtle", 
+        "code": "import turtle",
         "instruction": "Import the turtle module"
-    }, 
+    },
     {
-        "code": "t = turtle.Turtle()", 
-        "instruction": "Create and initialize variable 't' to return value of function 'Turtle' on object 'turtle' without parameter"
-    }, 
+        "code": "t = turtle.Turtle()",
+        "instruction": "Create and initialize variable 't' to return
+        value of function 'Turtle' on object 'turtle' without parameter"
+    },
     {
-        "code": "for i in range(36):", 
-        "instruction": "Iterate the variable i over the range from 0 to 36, and do the following:"
-    }, 
+        "code": "for i in range(36):",
+        "instruction": "Iterate the variable i over the range from 0
+        to 36, and do the following:"
+    },
     {
-        "code": "    t.forward(10)", 
-        "instruction": "    Call function 'forward' on object 't' with parameter of 10"
-    }, 
+        "code": "    t.forward(10)",
+        "instruction": "    Call function 'forward' on object 't' with
+        parameter of 10"
+    },
     {
-        "code": "    t.right(10)", 
-        "instruction": "    Call function 'right' on object 't' with parameter of 10"
+        "code": "    t.right(10)",
+        "instruction": "    Call function 'right' on object 't' with
+        parameter of 10"
     }
 ]
 ```

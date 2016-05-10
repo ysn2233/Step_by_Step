@@ -44,7 +44,7 @@ class Unparser:
         self.no_newline = True
         self.variables = []
         self.func_name = ""
-        self.no_direct_call = False
+        self.direct_call = True
         self.import_module = False
         self.mode = mode
         self.dep_graph = networkx.DiGraph()
@@ -77,10 +77,11 @@ class Unparser:
         if self.no_newline:
             self.no_newline = False
             return
+        self.direct_call = True
         self.write("\n")
 
         # code for function dependency
-        if self.curr_vert == "":
+        if not self.curr_vert:
             if not self.comp_stat:
                 self.curr_vert = "_stat_" + str(self.stat_seq) + "_"
                 self.dep_graph.add_node(self.curr_vert)
@@ -158,7 +159,7 @@ class Unparser:
     def dep_dfs(self, source):
         self.colour[source] = Colour.grey
         edges = self.dep_graph.edges(source, "weight")
-        edges = sorted(edges, key=lambda t:t[2])
+        edges.sort(key=lambda t:t[2])
         for e in edges:
             if self.colour[e[1]] == Colour.white:
                 self.dep_dfs(e[1])
@@ -179,15 +180,43 @@ class Unparser:
                 continue
             self.instructions.extend(self.buf_list[vert].getvalue().split("\n")[:-1])
 
-    def get_tml(self, mod, func):
+    def get_tml(self, mod, call):
         if not self.mod_list.has_key(mod):
             return ""
-        if not self.mod_list[mod].has_key(func):
-            return ""
-        return self.mod_list[mod][func]
+        func_tml = ""
+        for sign in self.mod_list[mod]:
+            if sign[0] != call[0] or sign[1] != call[1]:
+                continue
+            found = True
+            for kwarg in call[2:]:
+                if kwarg not in sign[2:]:
+                    found = False
+                    break
+            if found:
+                func_tml = self.mod_list[mod][sign]
+                break
+        return func_tml
+
+    def resolve(self, line):
+        fields = re.split(r"\s{2,}", line)
+        if len(fields) < 2:
+            return (), ""
+        tml_split = fields[1].split("|")
+        tml_args = re.findall(r"\[(arg[0-9]+)\]", tml_split[0])
+        tml_args.sort()
+        for i in range(len(tml_args)):
+            if tml_args[i] != "arg" + str(i + 1):
+                return (), ""
+        tml_kwargs = []
+        for seg in tml_split[1:]:
+            kwargs = re.findall(r"\[(\w+)\]", seg)
+            if len(kwargs) != 1:
+                return (), ""
+            tml_kwargs.extend(kwargs)
+        return (fields[0], len(tml_args)) + tuple(tml_kwargs), fields[1]
 
     def imp_mod(self, mod, alias=""):
-        if alias == "":
+        if not alias:
             alias = mod
         filename = "./modules/" + mod + ".mod"
         if not os.path.exists(filename):
@@ -198,26 +227,19 @@ class Unparser:
             for line in file:
                 line_cnt += 1
                 line = line.strip()
-                if line == "" or line[0] == "#":
+                if not line or line[0] == "#":
                     continue
-                fields = re.split(r"\s{2,}", line)
-                assert len(fields) == 2, "Field error: file \"" + filename + "\", line " + str(line_cnt)
-                func_tml = fields[1]
-                arg_cnt = 0
-                while "[arg" + str(arg_cnt + 1) + "]" in func_tml:
-                    arg_cnt += 1
-                for arg_seq in range(1, arg_cnt + 1):
-                    tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
-                    assert len(tml_split) == 2, "Template error: file \"" + filename + "\", line " + str(line_cnt)
-                    func_tml = tml_split[1]
-                self.mod_list[alias][(fields[0], arg_cnt)] = fields[1]
+                func_sign, func_tml = self.resolve(line)
+                assert func_sign and func_tml, \
+                       "Module file error: \"" + filename + "\", " + str(line_cnt)
+                self.mod_list[alias][func_sign] = func_tml
 
     def imp_func(self, mod, func, alias=""):
-        if alias == "":
+        if not alias:
             alias = func
-        for key in self.mod_list["_dflt_"].keys():
-            if key[0] == alias:
-                mod_list["_dflt_"].pop(key)
+        for sign in self.mod_list["_dflt_"].keys():
+            if sign[0] == alias:
+                self.mod_list["_dflt_"].pop(sign)
         filename = "./modules/" + mod + ".mod"
         if not os.path.exists(filename):
             return
@@ -226,21 +248,15 @@ class Unparser:
             for line in file:
                 line_cnt += 1
                 line = line.strip()
-                if line == "" or line[0] == "#":
+                if not line or line[0] == "#":
                     continue
-                fields = re.split(r"\s{2,}", line)
-                assert len(fields) == 2, "Field error: file \"" + filename + "\", line " + str(line_cnt)
-                if fields[0] != func:
+                func_sign, func_tml = self.resolve(line)
+                assert func_sign and func_tml, \
+                       "Module file error: \"" + filename + "\", " + str(line_cnt)
+                if func_sign[0] != func:
                     continue
-                func_tml = fields[1]
-                arg_cnt = 0
-                while "[arg" + str(arg_cnt + 1) + "]" in func_tml:
-                    arg_cnt += 1
-                for arg_seq in range(1, arg_cnt + 1):
-                    tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
-                    assert len(tml_split) == 2, "Template error: file \"" + filename + "\", line " + str(line_cnt)
-                    func_tml = tml_split[1]
-                self.mod_list["_dflt_"][(alias, arg_cnt)] = fields[1]
+                func_sign = (alias,) + func_sign[1:]
+                self.mod_list["_dflt_"][func_sign] = func_tml
 
 
     ############### Unparsing methods ######################
@@ -313,22 +329,18 @@ class Unparser:
                 for target in t.targets:
                     if comma: self.write(", ")
                     else: comma = True
-                    self.write("'")
                     self.dispatch(target)
-                    self.write("'")
             else:
                 for target in t.targets:
                     self.dispatch(t.targets)
             self.write(" to ")
-            self.no_direct_call = True
+            self.direct_call = False
             self.dispatch(t.value)
-            self.no_direct_call = False
         else:
             self.indent()
             self.write("Assign ")
-            self.no_direct_call = True
+            self.direct_call = False
             self.dispatch(t.value)
-            self.no_direct_call = False
             self.write(" to ")
             if isinstance(t.targets[0], ast.Name):
                 if len(t.targets) == 1:
@@ -339,9 +351,7 @@ class Unparser:
                 for target in t.targets:
                     if comma: self.write(", ")
                     else: comma = True
-                    self.write("'")
                     self.dispatch(target)
-                    self.write("'")
             else:
                 for target in t.targets:
                     self.dispatch(target)
@@ -446,16 +456,15 @@ class Unparser:
         else:
             Dict['Print'] = 1
 
-        self.no_direct_call = True
         self.indent()
-        self.write("Print the result of ")
+        self.write("Print ")
         do_comma = False
         for e in t.values:
             if do_comma: self.write(", ")
             else: do_comma = True
+            self.direct_call = False
             self.dispatch(e)
-        self.write(" to screen")
-        self.no_direct_call = False
+        self.write(" to the screen")
 
     def _ClassDef(self, t):
         # code for function dependency
@@ -572,7 +581,7 @@ class Unparser:
             t = t.orelse[0]
             self.newline()
             self.indent()
-            self.write("Else if ")
+            self.write("Otherwise, if ")
             self.dispatch(t.test)
             self.write(", do the following")
             self.enter()
@@ -582,7 +591,7 @@ class Unparser:
         if t.orelse:
             self.newline()
             self.indent()
-            self.write("Else, do the following")
+            self.write("Otherwise, do the following")
             self.enter()
             self.dispatch(t.orelse)
             self.leave()
@@ -615,19 +624,20 @@ class Unparser:
         # if from __future__ import unicode_literals is in effect,
         # then we want to output string literals using a 'b' prefix
         # and unicode literals with no prefix.
+        self.write("string ")
         if "unicode_literals" not in self.future_imports:
             self.write(repr(tree.s))
         elif isinstance(tree.s, str):
-            print '='*30
             self.write("b" + repr(tree.s))
         elif isinstance(tree.s, unicode):
-            print '-'*30
             self.write(repr(tree.s).lstrip("u"))
         else:
             assert False, "shouldn't get here"
 
     def _Name(self, t):
+        self.write("'")
         self.write(t.id)
+        self.write("'")
 
     def _Repr(self, t):
         self.write("`")
@@ -754,9 +764,8 @@ class Unparser:
 
     def _Attribute(self,t):
         self.write("'" + t.attr + "'")
-        self.write(" on object '")
+        self.write(" on object ")
         self.dispatch(t.value)
-        self.write("'")
 
     def _Call(self, t):
         # code for function dependency
@@ -770,44 +779,46 @@ class Unparser:
         # code for function templates
         func_tml = ""
         if isinstance(t.func, ast.Name):
-            func_tml = self.get_tml("_dflt_", (t.func.id, len(t.args) + len(t.keywords)))
+            func_call = (t.func.id, len(t.args)) + tuple(k.arg for k in t.keywords)
+            func_tml = self.get_tml("_dflt_", func_call)
         elif (isinstance(t.func, ast.Attribute) and
               isinstance(t.func.value, ast.Name)):
             if self.var_list.has_key(t.func.value.id):
                 ref_mod = self.var_list[t.func.value.id]
             else:
                 ref_mod = t.func.value.id
-            func_tml = self.get_tml(ref_mod, (t.func.attr, len(t.args) + len(t.keywords)))
+            func_call = (t.func.attr, len(t.args)) + tuple(k.arg for k in t.keywords)
+            func_tml = self.get_tml(ref_mod, func_call)
 
-        # code for funciton templates
-        if func_tml != "":
+        # code for function templates
+        if func_tml:
             if (isinstance(t.func, ast.Attribute) and
                 isinstance(t.func.value, ast.Name)):
-                func_tml = func_tml.replace("[obj]", t.func.value.id)
-            arg_seq = 0
-            for e in t.args:
-                arg_seq += 1
-                tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
-                self.write(tml_split[0])
-                func_tml = tml_split[1]
-                self.dispatch(e)
-            for e in t.keywords:
-                arg_seq += 1
-                tml_split = func_tml.split("[arg" + str(arg_seq) + "]")
-                self.write(tml_split[0])
-                func_tml = tml_split[1]
-                self.dispatch(e)
-            self.write(func_tml)
+                func_tml = func_tml.replace("[obj]", "'" + t.func.value.id + "'")
+            tml_split = func_tml.split("|")
+            tml_args = re.findall(r"\[(arg[0-9]+)\]", tml_split[0])
+            for arg in tml_args:
+                seg_split = tml_split[0].split("[" + arg + "]")
+                self.write(seg_split[0])
+                tml_split[0] = seg_split[1]
+                self.direct_call = False
+                self.dispatch(t.args[int(arg[3:]) - 1])
+            self.write(tml_split[0])
+            for seg in tml_split[1:]:
+                match = re.search(r"\[(\w+)\]", seg)
+                for e in t.keywords:
+                    if e.arg == match.group(1):
+                        seg_split = seg.split("[" + e.arg + "]")
+                        self.write(seg_split[0])
+                        self.direct_call = False
+                        self.dispatch(e.value)
+                        self.write(seg_split[1])
         else:
-            if self.no_direct_call:
-                self.write("return value of function ")
-            else:
+            if self.direct_call:
                 self.write("Call function ")
-            if isinstance(t.func, ast.Name):
-                self.write("'")
+            else:
+                self.write("return value of function ")
             self.dispatch(t.func)
-            if isinstance(t.func, ast.Name):
-                self.write("'")
             if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
                 self.write(" recursively")
             # handle cases of no arguments
@@ -821,10 +832,12 @@ class Unparser:
             for e in t.args:
                 if comma: self.write(", ")
                 else: comma = True
+                self.direct_call = False
                 self.dispatch(e)
             for e in t.keywords:
                 if comma: self.write(", ")
                 else: comma = True
+                self.direct_call = False
                 self.dispatch(e)
 
     def _Subscript(self, t):
@@ -855,17 +868,17 @@ class Unparser:
         first = True
         # normal arguments
         defaults = [None] * (len(t.args) - len(t.defaults)) + t.defaults
-        for a,d in zip(t.args, defaults):
-            if first:first = False
+        for a, d in zip(t.args, defaults):
+            if first: first = False
             else: self.write(", ")
-            self.dispatch(a),
+            self.dispatch(a)
             if d:
-                self.write(" with default value ")
+                self.write(" defaulted to ")
                 self.dispatch(d)
 
     def _keyword(self, t):
-        self.write(t.arg)
-        self.write("=")
+        self.write("'" + t.arg + "'")
+        self.write(" set to ")
         self.dispatch(t.value)
 
     def _alias(self, t):
