@@ -15,8 +15,6 @@ from unparse import Colour
 from unparse import Level
 import re
 
-Dict = {}
-
 def interleave(inter, f, seq):
     "Call f on each item in seq, calling inter() in between."
     seq = iter(seq)
@@ -36,8 +34,8 @@ class Unparser:
 
     def __init__(self, tree, mode=Mode.normal, level=Level.low):
         "Initialise instructor."
-        self.var = {}
         self.instructions = []
+        self.statistics = {}
         self.tree = tree
         self.future_imports = []
         self.indents = 0
@@ -60,24 +58,30 @@ class Unparser:
         self.level = level
         self.docs_list = {}
         self.mod_list = {}
+        self.mod_map = {}
+        self.func_map = {}
         self.var_list = {}
         self.from_mod = ""
+        self.stat_execs = {}
+        self.def_calls = {}
+        self.other_calls = 0
 
     def run(self):
         "Generate instructions."
-        self.imp_mod("_dflt_")
+        self.imp_mod("built_in")
         self.dispatch(self.tree)
         self.newline()
         self.search()
         self.flush()
-        return self.instructions
+        self.collect()
+        return self.instructions, self.statistics
 
     def newline(self):
         "End current code/instruction block."
+        self.direct_call = True
         if self.no_newline:
             self.no_newline = False
             return
-        self.direct_call = True
         self.write("\n")
 
         # code for function dependency
@@ -132,6 +136,14 @@ class Unparser:
         "Dispatcher function, dispatching tree type T to method _T."
         if isinstance(tree, ast.stmt):
             self.newline()
+
+        # if top level is a function call
+        if isinstance(tree, ast.Call):
+            pass
+        elif (not isinstance(tree, ast.Expr) or
+              not isinstance(tree.value, ast.Call)):
+            self.direct_call = False
+
         if isinstance(tree, list):
             for t in tree:
                 self.dispatch(t)
@@ -180,22 +192,30 @@ class Unparser:
                 continue
             self.instructions.extend(self.buf_list[vert].getvalue().split("\n")[:-1])
 
+    def match(self, call, sign):
+        if call[0] != sign[0] or call[1] != sign[1]:
+            return False
+        for kwarg in call[2:]:
+            if kwarg not in sign[2:]:
+                return False
+        return True
+
     def get_tml(self, mod, call):
-        if not self.mod_list.has_key(mod):
+        if not self.mod_map.has_key(mod):
             return ""
-        func_tml = ""
+        mod = self.mod_map[mod]
+        if mod == "built_in":
+            for sign in self.func_map:
+                if self.match(call, sign):
+                    mod = self.func_map[sign][0]
+                    sign = self.func_map[sign][1]
+                    self.mod_list[mod][sign][1] += 1
+                    return self.mod_list[mod][sign][0]
         for sign in self.mod_list[mod]:
-            if sign[0] != call[0] or sign[1] != call[1]:
-                continue
-            found = True
-            for kwarg in call[2:]:
-                if kwarg not in sign[2:]:
-                    found = False
-                    break
-            if found:
-                func_tml = self.mod_list[mod][sign]
-                break
-        return func_tml
+            if self.match(call, sign):
+                self.mod_list[mod][sign][1] += 1
+                return self.mod_list[mod][sign][0]
+        return ""
 
     def resolve(self, line):
         fields = re.split(r"\s{2,}", line)
@@ -216,13 +236,15 @@ class Unparser:
         return (fields[0], len(tml_args)) + tuple(tml_kwargs), fields[1]
 
     def imp_mod(self, mod, alias=""):
-        if not alias:
-            alias = mod
         filename = "./modules/" + mod + ".mod"
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
-            self.mod_list[alias] = {}
+            self.mod_list[mod] = {}
+            if alias:
+                self.mod_map[alias] = mod
+            else:
+                self.mod_map[mod] = mod
             line_cnt = 0
             for line in file:
                 line_cnt += 1
@@ -232,18 +254,15 @@ class Unparser:
                 func_sign, func_tml = self.resolve(line)
                 assert func_sign and func_tml, \
                        "Module file error: \"" + filename + "\", " + str(line_cnt)
-                self.mod_list[alias][func_sign] = func_tml
+                self.mod_list[mod][func_sign] = [func_tml, 0]
 
     def imp_func(self, mod, func, alias=""):
-        if not alias:
-            alias = func
-        for sign in self.mod_list["_dflt_"].keys():
-            if sign[0] == alias:
-                self.mod_list["_dflt_"].pop(sign)
         filename = "./modules/" + mod + ".mod"
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
+            if not self.mod_list.has_key(mod):
+                self.mod_list[mod] = {}
             line_cnt = 0
             for line in file:
                 line_cnt += 1
@@ -255,8 +274,38 @@ class Unparser:
                        "Module file error: \"" + filename + "\", " + str(line_cnt)
                 if func_sign[0] != func:
                     continue
-                func_sign = (alias,) + func_sign[1:]
-                self.mod_list["_dflt_"][func_sign] = func_tml
+                self.mod_list[mod][func_sign] = [func_tml, 0]
+                if alias:
+                    self.func_map[(alias,) + func_sign[1:]] = (mod, func_sign)
+                else:
+                    self.func_map[func_sign] = (mod, func_sign)
+
+    def collect(self):
+        self.statistics["stat_execs"] = {}
+        self.statistics["stat_execs"]["_total_"] = 0
+        for e in self.stat_execs:
+            if self.stat_execs[e] > 0:
+                self.statistics["stat_execs"][e] = self.stat_execs[e]
+                self.statistics["stat_execs"]["_total_"] += self.stat_execs[e]
+
+        self.statistics["func_calls"] = {}
+        for m in self.mod_list:
+            self.statistics["func_calls"][m] = {}
+            self.statistics["func_calls"][m]["_total_"] = 0
+            for s in self.mod_list[m]:
+                if self.mod_list[m][s][1] > 0:
+                    if not self.statistics["func_calls"][m].has_key(s[0]):
+                        self.statistics["func_calls"][m][s[0]] = 0
+                    self.statistics["func_calls"][m][s[0]] += self.mod_list[m][s][1]
+                    self.statistics["func_calls"][m]["_total_"] += self.mod_list[m][s][1]
+        self.statistics["func_calls"]["defined"] = {}
+        self.statistics["func_calls"]["defined"]["_total_"] = 0
+        for d in self.def_calls:
+            if self.def_calls[d] > 0:
+                self.statistics["func_calls"]["defined"][d] = self.def_calls[d]
+                self.statistics["func_calls"]["defined"]["_total_"] += self.def_calls[d]
+        self.statistics["func_calls"]["other"] = {}
+        self.statistics["func_calls"]["other"]["_total_"] = self.other_calls
 
 
     ############### Unparsing methods ######################
@@ -277,11 +326,6 @@ class Unparser:
         self.dispatch(tree.value)
 
     def _Import(self, t):
-        if Dict.has_key('Import'):
-            Dict['Import'] = Dict['Import'] + 1
-        else:
-            Dict['Import'] = 1
-
         self.import_module = True
         self.indent()
         self.write("Import ")
@@ -317,7 +361,7 @@ class Unparser:
                     init = True
 
         if init:
-            Dict['Variable'] = len(self.variables)
+            self.stat_execs["var_init"] = len(self.variables)
             self.indent()
             self.write("Initialise ")
             if isinstance(t.targets[0], ast.Name):
@@ -334,12 +378,10 @@ class Unparser:
                 for target in t.targets:
                     self.dispatch(t.targets)
             self.write(" to ")
-            self.direct_call = False
             self.dispatch(t.value)
         else:
             self.indent()
             self.write("Assign ")
-            self.direct_call = False
             self.dispatch(t.value)
             self.write(" to ")
             if isinstance(t.targets[0], ast.Name):
@@ -371,10 +413,10 @@ class Unparser:
             isinstance(t.value.func, ast.Name)):
             if isinstance(t.targets[0], ast.Name):
                 for target in t.targets:
-                    self.var_list[target.id] = "_dflt_"
+                    self.var_list[target.id] = "built_in"
             elif isinstance(t.targets[0], ast.Tuple):
                 for target in t.targets[0].elts:
-                    self.var_list[target.id] = "_dflt_"
+                    self.var_list[target.id] = "built_in"
 
         # code for function templates
         if (isinstance(t.value, ast.Call) and
@@ -396,7 +438,7 @@ class Unparser:
                     self.var_list[target.id] = self.var_list[value.id]
                 if (isinstance(value, ast.Call) and
                     isinstance(t.value.func, ast.Name)):
-                    self.var_list[target.id] = "_dflt_"
+                    self.var_list[target.id] = "built_in"
                 if (isinstance(value, ast.Call) and
                     isinstance(t.value.func, ast.Attribute) and
                     isinstance(t.value.func.value, ast.Name) and
@@ -419,29 +461,14 @@ class Unparser:
             self.dispatch(t.value)
 
     def _Break(self, t):
-        if Dict.has_key('Break'):
-            Dict['Break'] = Dict['Break'] + 1
-        else:
-            Dict['Break'] = 1
-
         self.indent()
         self.write("Break out of the current loop")
 
     def _Continue(self, t):
-        if Dict.has_key('Continue'):
-            Dict['Continue'] = Dict['Continue'] + 1
-        else:
-            Dict['Continue'] = 1
-
         self.indent()
         self.write("Skip the rest code inside the loop and continue with next iteration")
 
     def _Assert(self, t):
-        if Dict.has_key('Assert'):
-            Dict['Assert'] = Dict['Assert'] + 1
-        else:
-            Dict['Assert'] = 1
-
         self.indent()
         self.write("Check the condition of ")
         self.dispatch(t.test)
@@ -451,18 +478,12 @@ class Unparser:
             self.dispatch(t.msg)
 
     def _Print(self, t):
-        if Dict.has_key('Print'):
-            Dict['Print'] = Dict['Print'] + 1
-        else:
-            Dict['Print'] = 1
-
         self.indent()
         self.write("Print ")
         do_comma = False
         for e in t.values:
             if do_comma: self.write(", ")
             else: do_comma = True
-            self.direct_call = False
             self.dispatch(e)
         self.write(" to the screen")
 
@@ -470,19 +491,14 @@ class Unparser:
         # code for function dependency
         self.enter_comp()
 
-        if Dict.has_key('ClassDef'):
-            Dict['ClassDef'] = Dict['ClassDef'] + 1
+        if not self.stat_execs.has_key("class_def"):
+            self.stat_execs["class_def"] = 1
         else:
-            Dict['ClassDef'] = 1
+            self.stat_execs["class_def"] += 1
 
         self.indent()
         self.write("Define a class '" + t.name + "'")
         if t.bases:
-            if Dict.has_key('ClassDef_inherit'):
-                Dict['ClassDef_inherit'] = Dict['ClassDef_inherit'] + 1
-            else:
-                Dict['ClassDef_inherit'] = 1
-
             self.write(", which inherits from ")
             do_comma = False
             for a in t.bases:
@@ -500,12 +516,13 @@ class Unparser:
         # code for function dependency
         self.enter_def(t.name)
 
-        if Dict.has_key('FunctionDef'):
-            Dict['FunctionDef'] = Dict['FunctionDef'] + 1
+        if not self.stat_execs.has_key("func_def"):
+            self.stat_execs["func_def"] = 1
         else:
-            Dict['FunctionDef'] = 1
+            self.stat_execs["func_def"] += 1
 
         self.func_name = t.name
+        self.def_calls[t.name] = 0
         self.indent()
         self.write("Define a function '" + t.name + "'")
         if len(t.args.args) == 0:
@@ -541,10 +558,10 @@ class Unparser:
         # code for function dependency
         self.enter_comp()
 
-        if Dict.has_key('For'):
-            Dict['For'] = Dict['For'] + 1
+        if not self.stat_execs.has_key("for_loop"):
+            self.stat_execs["for_loop"] = 1
         else:
-            Dict['For'] = 1
+            self.stat_execs["for_loop"] += 1
 
         self.indent()
         self.write("Iterate variable ")
@@ -563,10 +580,10 @@ class Unparser:
         # code for function dependency
         self.enter_comp()
 
-        if Dict.has_key('If'):
-            Dict['If'] = Dict['If'] + 1
+        if not self.stat_execs.has_key("if_else_stat"):
+            self.stat_execs["if_else_stat"] = 1
         else:
-            Dict['If'] = 1
+            self.stat_execs["if_else_stat"] += 1
 
         self.indent()
         self.write("If ")
@@ -603,10 +620,10 @@ class Unparser:
         # code for function dependency
         self.enter_comp()
 
-        if Dict.has_key('While'):
-            Dict['While'] = Dict['While'] + 1
+        if not self.stat_execs.has_key("while_loop"):
+            self.stat_execs["while_loop"] = 1
         else:
-            Dict['While'] = 1
+            self.stat_execs["while_loop"] += 1
 
         self.indent()
         self.write("While ")
@@ -654,11 +671,6 @@ class Unparser:
             self.write(")")
 
     def _List(self, t):
-        if Dict.has_key('List'):
-            Dict['List'] = Dict['List'] + 1
-        else:
-            Dict['List'] = 1
-
         self.write("list [")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("]")
@@ -673,22 +685,12 @@ class Unparser:
         self.write(")")
 
     def _Set(self, t):
-        if Dict.has_key('Set'):
-            Dict['Set'] = Dict['Set'] + 1
-        else:
-            Dict['Set'] = 1
-
         assert(t.elts) # should be at least one element
         self.write("set {")
         interleave(lambda: self.write(", "), self.dispatch, t.elts)
         self.write("}")
 
     def _Dict(self, t):
-        if Dict.has_key('Dict'):
-            Dict['Dict'] = Dict['Dict'] + 1
-        else:
-            Dict['Dict'] = 1
-
         self.write("dictionary {")
         def write_pair(pair):
             (k, v) = pair
@@ -699,11 +701,6 @@ class Unparser:
         self.write("}")
 
     def _Tuple(self, t):
-        if Dict.has_key('Tuple'):
-            Dict['Tuple'] = Dict['Tuple'] + 1
-        else:
-            Dict['Tuple'] = 1
-
         self.write("tuple (")
         if len(t.elts) == 1:
             (elt,) = t.elts
@@ -780,7 +777,7 @@ class Unparser:
         func_tml = ""
         if isinstance(t.func, ast.Name):
             func_call = (t.func.id, len(t.args)) + tuple(k.arg for k in t.keywords)
-            func_tml = self.get_tml("_dflt_", func_call)
+            func_tml = self.get_tml("built_in", func_call)
         elif (isinstance(t.func, ast.Attribute) and
               isinstance(t.func.value, ast.Name)):
             if self.var_list.has_key(t.func.value.id):
@@ -801,16 +798,14 @@ class Unparser:
                 seg_split = tml_split[0].split("[" + arg + "]")
                 self.write(seg_split[0])
                 tml_split[0] = seg_split[1]
-                self.direct_call = False
                 self.dispatch(t.args[int(arg[3:]) - 1])
             self.write(tml_split[0])
             for seg in tml_split[1:]:
-                match = re.search(r"\[(\w+)\]", seg)
+                res = re.search(r"\[(\w+)\]", seg)
                 for e in t.keywords:
-                    if e.arg == match.group(1):
+                    if e.arg == res.group(1):
                         seg_split = seg.split("[" + e.arg + "]")
                         self.write(seg_split[0])
-                        self.direct_call = False
                         self.dispatch(e.value)
                         self.write(seg_split[1])
         else:
@@ -818,6 +813,10 @@ class Unparser:
                 self.write("Call function ")
             else:
                 self.write("return value of function ")
+            if isinstance(t.func, ast.Name) and self.def_calls.has_key(t.func.id):
+                self.def_calls[t.func.id] += 1
+            else:
+                self.other_calls += 1
             self.dispatch(t.func)
             if isinstance(t.func, ast.Name) and t.func.id == self.func_name:
                 self.write(" recursively")
@@ -832,12 +831,10 @@ class Unparser:
             for e in t.args:
                 if comma: self.write(", ")
                 else: comma = True
-                self.direct_call = False
                 self.dispatch(e)
             for e in t.keywords:
                 if comma: self.write(", ")
                 else: comma = True
-                self.direct_call = False
                 self.dispatch(e)
 
     def _Subscript(self, t):
@@ -902,10 +899,39 @@ def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=Level.low):
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree, mode, level).run()
+
+    instructions, statistics = Unparser(tree, mode, level).run()
     for i in instructions:
-        output.write(i)
-        output.write("\n")
+        output.write(i + "\n")
+    output.write("-" * 50 + "\n")
+
+    output.write("stat_execs: " + str(statistics["stat_execs"]["_total_"]) + "\n")
+    for e in statistics["stat_execs"]:
+        if e == "_total_":
+            continue
+        output.write(" " * 4 + e + ": " + str(statistics["stat_execs"][e]) + "\n")
+    output.write("-" * 50 + "\n")
+
+    total = 0
+    for m in statistics["func_calls"]:
+        total += statistics["func_calls"][m]["_total_"]
+    output.write("func_calls: " + str(total) + "\n")
+
+    for m in statistics["func_calls"]:
+        if m == "built_in" or m == "defined" or m == "other":
+            continue
+        output.write(" " * 4 + m + ": " + str(statistics["func_calls"][m]["_total_"]) + "\n")
+        for f in statistics["func_calls"][m]:
+            if f == "_total_":
+                continue
+            output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
+
+    for m in ["built_in", "defined", "other"]:
+        output.write(" " * 4 + m + ": "+ str(statistics["func_calls"][m]["_total_"]) + "\n")
+        for f in statistics["func_calls"][m]:
+            if f == "_total_":
+                continue
+            output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
 
 def main(argv):
     if len(argv) < 1:
@@ -924,10 +950,6 @@ def main(argv):
         elif argv[i] == "-h":
             lv = Level.high
     roundtrip(argv[-1], mode=md, level=lv)
-
-    print('-------------------\n')
-    for i in Dict:
-        print i, Dict[i]
 
 if __name__ == '__main__':
     main(sys.argv[1:])
