@@ -1,3 +1,2 @@
-
-(foo AND bar)
-(foo OR bar)
+('foo' AND 'bar')
+('foo' OR 'bar')

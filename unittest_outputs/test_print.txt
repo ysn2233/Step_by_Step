@@ -1,3 +1,2 @@
-
-Print the result of 'Hello World' to screen
-Print the result of 'hello', 'world' to screen
+Print string 'Hello World' to the screen
+Print string 'hello', string 'world' to the screen
