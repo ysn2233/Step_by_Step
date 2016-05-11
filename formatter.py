@@ -5,10 +5,11 @@ import json
 import sys
 
 class TuringlabJson(object):
-    def __init__(self, steps_code, steps_instructions, fn):
+    def __init__(self, steps_code, steps_instructions, statistics, fn):
         self.code = steps_code
         self.instructions = steps_instructions
         self.fn = fn
+        self.stat = statistics
 
     def email_json(self):
         res = [{"code": l, "text": i} for (l, i) in
@@ -21,7 +22,7 @@ class TuringlabJson(object):
             step = {}
             step['name'] = 'POST EDIT'
             step['description'] = 'POST EDIT'
-            step['components'] = each
+            step['components'] = [each]
             turinglab_json['steps'].append(step)
 
         json.dump(turinglab_json, sys.stdout, indent=4)
@@ -39,7 +40,10 @@ class TuringlabJson(object):
             step['title'] = 'POST EDIT'
             step['description'] = 'POST EDIT'
             step['image'] = 'POST EDIT'
-            step['components'] = each
+            step['components'] = [each]
             turinglab_json['steps'].append(step)
 
         json.dump(turinglab_json, sys.stdout, indent=4)
+
+    def dump_stat(self):
+        json.dump(self.stat, sys.stdout, indent=4)
