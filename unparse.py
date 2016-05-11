@@ -4,20 +4,7 @@ import ast
 import cStringIO
 import os
 import networkx
-import enum
-
-class Mode(enum.Enum):
-    normal = 0
-    depend = 1
-
-class Colour(enum.Enum):
-    white = 0
-    grey  = 1
-    black = 2
-
-class Level(enum.Enum):
-    low = 0
-    high = 1
+import settings
 
 # Large float and imaginary literals get turned into infinities in the AST.
 # We unparse those infinities to INFSTR.
@@ -40,10 +27,10 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded."""
 
-    def __init__(self, tree, mode=Mode.normal, level=Level.low):
+    def __init__(self, fn, mode, level=settings.LOW):
         "Initialise unparser."
         self.instructions = []
-        self.tree = tree
+        self.tree = None
         self.future_imports = []
         self.indents = 0
         self.no_newline = True
@@ -61,13 +48,21 @@ class Unparser:
         self.level = level
         self.docs_list = {}
 
+        with open(fn, 'r') as f:
+            code = f.read()
+        self.tree = ast.parse(code, fn, 'exec')
+
     def run(self):
-        "Generate code lines."
+        "Generate steps of code."
         self.dispatch(self.tree)
         self.newline()
         self.search()
         self.flush()
-        return self.instructions
+
+        # generate well ordered ast
+        new_code = '\n'.join(self.instructions)
+        new_ast = ast.parse(new_code)
+        return (self.instructions, new_ast)
 
     def newline(self):
         "End current code/instruction block."
@@ -93,7 +88,7 @@ class Unparser:
         else:
             if not self.func_def:
                 self.dep_graph.add_node(self.curr_vert)
-                if self.level == Level.high:
+                if self.level == settings.HIGH:
                     self.buf_list[self.curr_vert] = cStringIO.StringIO()
                     self.buf_list[self.curr_vert].write(self.curr_buf.getvalue().split("\n")[0] + "\n")
                     self.buf_list[self.curr_vert].write(self.docs_list[self.curr_vert])
@@ -153,20 +148,20 @@ class Unparser:
             self.func_def = False
 
     def dep_dfs(self, source):
-        self.colour[source] = Colour.grey
+        self.colour[source] = settings.GREY
         edges = self.dep_graph.edges(source, "weight")
         edges = sorted(edges, key=lambda t:t[2])
         for e in edges:
-            if self.colour[e[1]] == Colour.white:
+            if self.colour[e[1]] == settings.WHITE:
                 self.dep_dfs(e[1])
-        self.colour[source] = Colour.black
+        self.colour[source] = settings.BLACK
         self.out_list.append(source)
 
     def search(self):
-        if (self.mode == Mode.depend):
+        if (self.mode == settings.DEPEND):
             self.out_list = []
             nodes = self.dep_graph.nodes()
-            self.colour = dict(zip(nodes, [Colour.white] * len(nodes)))
+            self.colour = dict(zip(nodes, [settings.WHITE] * len(nodes)))
             for s in self.stat_list:
                 self.dep_dfs(s)
 
@@ -796,7 +791,7 @@ class Unparser:
         if t.asname:
             self.write(" as " + t.asname)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=Level.low):
+def roundtrip(filename, output=sys.stdout, mode=settings.NORMAL, level=settings.LOW):
     assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
     with open(filename, "r") as pyfile:
         source = pyfile.read()
@@ -811,17 +806,17 @@ def main(argv):
         print __doc__
         return
 
-    md = Mode.depend
-    lv = Level.low
+    md = settings.DEPEND
+    lv = settings.LOW
     for i in range(len(argv) - 1):
         if argv[i] == "-n":
-            md = Mode.normal
+            md = settings.NORMAL
         elif argv[i] == "-d":
-            md = Mode.depend
+            md = settings.DEPEND
         elif argv[i] == "-l":
-            lv = Level.low
+            lv = settings.LOW
         elif argv[i] == "-h":
-            lv = Level.high
+            lv = settings.HIGH
     roundtrip(argv[-1], mode=md, level=lv)
 
 if __name__ == '__main__':
