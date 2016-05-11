@@ -5,6 +5,7 @@
 import unittest
 import cStringIO
 import instructor
+import settings
 
 PY_DIR = "unittest_inputs/"
 TXT_DIR = "unittest_outputs/"
@@ -19,7 +20,7 @@ class TestInstructor(unittest.TestCase):
     def setUp(self):
         py_filename = PY_DIR + self._testMethodName + ".py"
         buffer = cStringIO.StringIO()
-        instructor.roundtrip(py_filename, buffer, Option.instr)
+        instructor.roundtrip(py_filename, buffer, settings.INSTR)
         self.result = buffer.getvalue().splitlines(True)
 
         txt_filename = TXT_DIR + self._testMethodName + ".txt"
