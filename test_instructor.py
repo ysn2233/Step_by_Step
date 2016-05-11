@@ -116,5 +116,9 @@ class TestInstructor(unittest.TestCase):
     def test_str_unicode(self):
         self.compare()
 
+    def test_template(self):
+        self.compare()
+
+
 if __name__ == '__main__':
     unittest.main()
