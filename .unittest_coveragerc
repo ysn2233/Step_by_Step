@@ -2,7 +2,7 @@
 [run]
 branch = False
 data_file = .unittest_coverage
-omit = test_instructor.py
+include = instructor.py
 
 [report]
 precision = 2
