@@ -19,7 +19,7 @@ class TestInstructor(unittest.TestCase):
     def setUp(self):
         py_filename = PY_DIR + self._testMethodName + ".py"
         buffer = cStringIO.StringIO()
-        instructor.roundtrip(py_filename, buffer)
+        instructor.roundtrip(py_filename, buffer, Option.instr)
         self.result = buffer.getvalue().splitlines(True)
 
         txt_filename = TXT_DIR + self._testMethodName + ".txt"
@@ -39,7 +39,7 @@ class TestInstructor(unittest.TestCase):
 
     def test_assign(self):
         self.compare()
-    
+
     def test_augAssign(self):
         self.compare()
 
@@ -48,16 +48,16 @@ class TestInstructor(unittest.TestCase):
 
     def test_break(self):
         self.compare()
-    
+
     def test_continue(self):
         self.compare()
-    
+
     def test_assert(self):
         self.compare()
-    
+
     def test_print(self):
         self.compare()
-    
+
     def test_classDef(self):
         self.compare()
 
@@ -69,7 +69,7 @@ class TestInstructor(unittest.TestCase):
 
     def test_if(self):
         self.compare()
-    
+
     def test_while(self):
         self.compare()
 
@@ -78,22 +78,22 @@ class TestInstructor(unittest.TestCase):
 
     def test_list(self):
         self.compare()
-    
+
     def test_ifexp(self):
         self.compare()
-    
+
     def test_set(self):
         self.compare()
-    
+
     def test_dict(self):
         self.compare()
-    
+
     def test_tuple(self):
         self.compare()
-    
+
     def test_unaryop(self):
         self.compare()
-    
+
     def test_binop(self):
         self.compare()
 

@@ -10,10 +10,16 @@ import ast
 import cStringIO
 import os
 import networkx
+import enum
 from unparse import Mode
 from unparse import Colour
 from unparse import Level
 import re
+
+class Option(enum.Enum):
+    both = 0
+    instr = 1
+    statis = 2
 
 def interleave(inter, f, seq):
     "Call f on each item in seq, calling inter() in between."
@@ -896,44 +902,50 @@ class Unparser:
             else:
                 self.imp_func(self.from_mod, t.name)
 
-def roundtrip(filename, output=sys.stdout, mode=Mode.normal, level=Level.low):
+def roundtrip(filename, output=sys.stdout, option=Option.both, mode=Mode.normal, level=Level.low):
     assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
 
     instructions, statistics = Unparser(tree, mode, level).run()
-    for i in instructions:
-        output.write(i + "\n")
-    output.write("-" * 50 + "\n")
+    if option != Option.statis:
+        for i in instructions:
+            output.write(i + "\n")
 
-    output.write("stat_execs: " + str(statistics["stat_execs"]["_total_"]) + "\n")
-    for e in statistics["stat_execs"]:
-        if e == "_total_":
-            continue
-        output.write(" " * 4 + e + ": " + str(statistics["stat_execs"][e]) + "\n")
-    output.write("-" * 50 + "\n")
+    if option != Option.instr:
+        output.write("-" * 50 + "\n")
 
-    total = 0
-    for m in statistics["func_calls"]:
-        total += statistics["func_calls"][m]["_total_"]
-    output.write("func_calls: " + str(total) + "\n")
-
-    for m in statistics["func_calls"]:
-        if m == "built_in" or m == "defined" or m == "other":
-            continue
-        output.write(" " * 4 + m + ": " + str(statistics["func_calls"][m]["_total_"]) + "\n")
-        for f in statistics["func_calls"][m]:
-            if f == "_total_":
+        output.write("stat_execs: " + str(statistics["stat_execs"]["_total_"]) + "\n")
+        for e in statistics["stat_execs"]:
+            if e == "_total_":
                 continue
-            output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
+            output.write(" " * 4 + e + ": " + str(statistics["stat_execs"][e]) + "\n")
 
-    for m in ["built_in", "defined", "other"]:
-        output.write(" " * 4 + m + ": "+ str(statistics["func_calls"][m]["_total_"]) + "\n")
-        for f in statistics["func_calls"][m]:
-            if f == "_total_":
+        output.write("-" * 50 + "\n")
+
+        total = 0
+        for m in statistics["func_calls"]:
+            total += statistics["func_calls"][m]["_total_"]
+        output.write("func_calls: " + str(total) + "\n")
+
+        for m in statistics["func_calls"]:
+            if m == "built_in" or m == "defined" or m == "other":
                 continue
-            output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
+            output.write(" " * 4 + m + ": " + str(statistics["func_calls"][m]["_total_"]) + "\n")
+            for f in statistics["func_calls"][m]:
+                if f == "_total_":
+                    continue
+                output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
+
+        for m in ["built_in", "defined", "other"]:
+            output.write(" " * 4 + m + ": "+ str(statistics["func_calls"][m]["_total_"]) + "\n")
+            for f in statistics["func_calls"][m]:
+                if f == "_total_":
+                    continue
+                output.write(" " * 8 + f + ": " + str(statistics["func_calls"][m][f]) + "\n")
+
+        output.write("-" * 50 + "\n")
 
 def main(argv):
     if len(argv) < 1:
