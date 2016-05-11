@@ -1,3 +1,12 @@
+# Update on architecture of the project
+1. Moved _**formatter**_ out of `main.py` to be a self-contained module
+   `formatter.py`
+2. Merged _**parser**_ with _**unparser**_, so no more _**parser**_ in frontend
+3. The new _**unparser**_ layer has two functionlaties, reordering the ast and
+   generating code.
+4. No matter which backend module is used, communication between frontend and
+   _**unparser**_ always exists.
+
 # How to generate low/high level instrucitons?
 
 Take *instructor.py* for example:
