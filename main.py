@@ -9,7 +9,7 @@ import os
 import settings
 
 import reorganizer
-import unparse
+import unparser
 import instructor
 from formatter import TuringlabJson
 
@@ -39,7 +39,7 @@ def main(argv):
     ordered_tree = reorganizer.Unparser(fn).run()
 
     # unparse reorganized AST back to code
-    steps_code = unparse.Unparser(ordered_tree, lvl=level).run()
+    steps_code = unparser.Unparser(ordered_tree, lvl=level).run()
 
     # generate instructions & statistics by analyzing the AST
     steps_instructions, statistics = \
