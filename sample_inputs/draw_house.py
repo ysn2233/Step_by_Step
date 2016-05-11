@@ -3,6 +3,19 @@ import turtle
 
 t = turtle.Turtle()
 
+def drawHouse():
+    "Draw a house consisting of a square base roof and a number of windows"
+    drawSquare(100)
+    drawRoof(100,50)
+
+    x,y = 25,-10
+    for i in range(2):
+        for j in range(2):
+            t.penup()
+            t.goto(x+i*60,y-j*60)
+            t.pendown()
+            drawWindow(12,16)
+
 def drawSquare(length):
     "Draw a square with given side length"
     for i in range(4):
@@ -41,19 +54,6 @@ def drawWindow(width,height):
     t.left(90)
     t.forward(height)
     t.left(90)
-
-def drawHouse():
-    "Draw a house consisting of a square base roof and a number of windows"
-    drawSquare(100)
-    drawRoof(100,50)
-
-    x,y = 25,-10
-    for i in range(2):
-        for j in range(2):
-            t.penup()
-            t.goto(x+i*60,y-j*60)
-            t.pendown()
-            drawWindow(12,16)
 
 if (__name__ == "__main__"):
     drawHouse()
