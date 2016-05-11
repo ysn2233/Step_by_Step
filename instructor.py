@@ -236,7 +236,8 @@ class Unparser:
         return (fields[0], len(tml_args)) + tuple(tml_kwargs), fields[1]
 
     def imp_mod(self, mod, alias=""):
-        filename = "./modules/" + mod + ".mod"
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
@@ -257,7 +258,8 @@ class Unparser:
                 self.mod_list[mod][func_sign] = [func_tml, 0]
 
     def imp_func(self, mod, func, alias=""):
-        filename = "./modules/" + mod + ".mod"
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
@@ -938,7 +940,7 @@ def main(argv):
         print __doc__
         return
 
-    md = Mode.normal
+    md = Mode.depend
     lv = Level.low
     for i in range(len(argv) - 1):
         if argv[i] == "-n":
