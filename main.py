@@ -9,26 +9,29 @@ import ast
 import cStringIO
 import os
 import json
+import settings
 
 def main(argv):
     if len(argv) < 1:
         print __doc__
         return
 
-    mode = unparse.Mode.depend
-    level = unparse.Level.low
+    mode = settings.DEPEND
+    level = settings.LOW
     for i in range(len(argv) - 1):
         if argv[i] == "-n":
-            mode = unparse.Mode.normal
+            mode = settings.NORMAL
         elif argv[i] == "-d":
-            mode = unparse.Mode.depend
+            mode = settings.DEPEND
         elif argv[i] == "-l":
-            level = unparse.Level.low
+            level = settings.LOW
         elif argv[i] == "-h":
-            level = unparse.Level.high
+            level = settings.HIGH
     fn = argv[-1]
-
     assert os.path.exists(fn), "File doesn't exist: \"" + fn + "\""
+
+    # steps_code, tree = unparse.Unparser(fn, mode, level).run()
+    # steps_instructions = instructor.Unparser(tree, mode, level).run()
     with open(fn, "r") as f:
         code = f.read()
     tree = ast.parse(code, fn, "exec")
