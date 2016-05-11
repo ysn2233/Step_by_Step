@@ -793,10 +793,7 @@ class Unparser:
 
 def roundtrip(filename, output=sys.stdout, mode=settings.NORMAL, level=settings.LOW):
     assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
-    with open(filename, "r") as pyfile:
-        source = pyfile.read()
-    tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
-    instructions = Unparser(tree, mode, level).run()
+    instructions, new_ast = Unparser(filename, mode, level).run()
     for i in instructions:
         output.write(i)
         output.write("\n")
