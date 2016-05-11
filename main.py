@@ -30,13 +30,8 @@ def main(argv):
     fn = argv[-1]
     assert os.path.exists(fn), "File doesn't exist: \"" + fn + "\""
 
-    # steps_code, tree = unparse.Unparser(fn, mode, level).run()
-    # steps_instructions = instructor.Unparser(tree, mode, level).run()
-    with open(fn, "r") as f:
-        code = f.read()
-    tree = ast.parse(code, fn, "exec")
-    code_lines = [l for l in unparse.Unparser(tree, mode, level).run()]
-    instructions = [i for i in instructor.Unparser(tree, mode, level).run()]
+    steps_code, ordered_tree = unparse.Unparser(fn, mode, level).run()
+    steps_instructions = instructor.Unparser(ordered_tree, mode, level).run()
 
     # TuringLab json - version of 4 May email from Henry
     # res = [{"code": l, "text": i} for (l, i) in
@@ -54,7 +49,7 @@ def main(argv):
 
     # TuringLab json - version of report 1
     res = [{"code": {'language': 'python', 'content': l}, "text": i} for (l, i)
-           in zip(code_lines, instructions)]
+           in zip(steps_code, steps_instructions)]
     turinglab_json = {"title": fn.split('/')[-1],
                       "description": "POST EDIT",
                       "image": "POST EDIT",

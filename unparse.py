@@ -27,10 +27,10 @@ class Unparser:
     output source code for the abstract syntax; original formatting
     is disregarded."""
 
-    def __init__(self, tree, mode, level=settings.LOW):
+    def __init__(self, fn, mode, level=settings.LOW):
         "Initialise unparser."
         self.instructions = []
-        self.tree = tree
+        self.tree = None
         self.future_imports = []
         self.indents = 0
         self.no_newline = True
@@ -48,13 +48,21 @@ class Unparser:
         self.level = level
         self.docs_list = {}
 
+        with open(fn, 'r') as f:
+            code = f.read()
+        self.tree = ast.parse(code, fn, 'exec')
+
     def run(self):
-        "Generate code lines."
+        "Generate steps of code."
         self.dispatch(self.tree)
         self.newline()
         self.search()
         self.flush()
-        return self.instructions
+
+        # generate well ordered ast
+        new_code = '\n'.join(self.instructions)
+        new_ast = ast.parse(new_code)
+        return (self.instructions, new_ast)
 
     def newline(self):
         "End current code/instruction block."
