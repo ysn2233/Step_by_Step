@@ -603,8 +603,6 @@ def roundtrip(filename, output=sys.stdout, level=settings.LOW):
     steps_of_code = Unparser(tree, lvl=level).run()
     for each in steps_of_code:
         output.write(each)
-        output.write("-"*10)
-        output.write("\n")
 
 def main(argv):
     lv = settings.LOW
