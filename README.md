@@ -1,11 +1,33 @@
 # Update on architecture of the project
+Scheme of backend
+```
+    Back end
+|    ___________     ___________
+|   |           |   |           |
+|   |           |-->|   stat    |
+|   |           |   |___________|
+|   |           |
+|   |           |    ___________
+|   |reorganizor|   |           |
+|   |           |-->|  unparser |
+|   |           |   |___________|
+|   |           |
+|   |           |    ___________
+|   |           |   |           |
+|   |           |-->| instructor|
+|   |___________|   |___________|
+|
+```
+
 1. Moved _**formatter**_ out of `main.py` to be a self-contained module
    `formatter.py`
-2. Merged _**parser**_ with _**unparser**_, so no more _**parser**_ in frontend
-3. The new _**unparser**_ layer has two functionlaties, reordering the ast and
-   generating code.
-4. No matter which backend module is used, communication between frontend and
-   _**unparser**_ always exists.
+2. Added _**reorganizor**_, which will reorganize an input ast (from frontend)
+   into a well ordered ast according to dependencies
+3. Merged _**parser**_ with _**reorganizor**_, so no more _**parser**_ in frontend
+4. Added an _**unparser**_ module at the very end, which takes an input of a
+   well ordered ast from _**reorganizor**_, and unparse it back to code.
+5. No matter which backend module is used, communication between frontend and
+   _**reorganizor**_ always exists.
 
 # How to generate low/high level instrucitons?
 
