@@ -5,6 +5,7 @@
 import unittest
 import cStringIO
 import instructor
+import settings
 
 PY_DIR = "unittest_inputs/"
 TXT_DIR = "unittest_outputs/"
