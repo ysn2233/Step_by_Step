@@ -1,5 +1,4 @@
-
-Define a function called 'increment'
-Set the input arguments to (num):
-    Return (num plus 1)
+Define a function 'increment' with a parameter 'num':
+    Return ('num' plus 1)
     Return
+Call function 'increment' with an argument 1

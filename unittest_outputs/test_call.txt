@@ -1,10 +1,9 @@
-
 the range from 0 to 5
 the range from 1 to 5
 the range from 1 to 5 with the step of 2
-Create and initialize variable 'a' to return value of function 'abs' with parameters of (-1)
-Print the result of return value of function 'abs' with parameters of (-1) to screen
-Call function 'input' with parameters of "What's your name? "
-Call function 'forward' on object 't' with parameters of 10
-Call function 'help' without parameters
-Call function 'foo' with parameters of a, b=c
+Initialise a variable 'a' to the absolute value of (-1)
+Print the absolute value of (-1) to the screen
+Print string "What's your name? " to the screen, and get an input from the user
+Call function 'forward' on object 't' with an argument 10
+Call function 'help' without arguments
+Call function 'foo' with arguments 'a', 'b' set to 'c'

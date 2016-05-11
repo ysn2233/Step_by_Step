@@ -1,2 +1,1 @@
-
 (((-1) times 3) plus ((-5) to the power of 2))

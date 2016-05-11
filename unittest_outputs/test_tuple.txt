@@ -1,3 +1,2 @@
-
-tuple ('physics', 'chemistry', 1997, 2000)
-tuple ('programming',)
+tuple (string 'physics', string 'chemistry', 1997, 2000)
+tuple (string 'programming',)

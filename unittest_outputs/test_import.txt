@@ -1,4 +1,3 @@
-
-Import the turtle module
-Import the turtle module as t
-Import the a module, b module, c module
+Import module 'turtle'
+Import module 'turtle' as 't'
+Import module 'a', module 'b', module 'c'
