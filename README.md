@@ -1,4 +1,8 @@
 # Update on architecture of the project
+**NOTE**: something wrong with `python main.py -h sample_inputs/tree.py`, seems
+to be caused by function `tree` has no docstring. PLEASE HAVE A LOOK AT THAT IF
+HAVE TIME.
+
 Scheme of backend
 ```
     Back end
