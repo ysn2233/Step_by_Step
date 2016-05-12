@@ -1,11 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# option
-BOTH = 0
-INSTR = 1
-STATIS = 2
-
 # mode
 NORMAL = 0
 DEPEND = 1
@@ -18,3 +13,8 @@ HIGH = 1
 WHITE = 0
 GREY = 1
 BLACK = 2
+
+# option
+BOTH = 0
+INSTR = 1
+STATIS = 2

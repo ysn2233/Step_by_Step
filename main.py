@@ -1,17 +1,16 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: main.py [-n|d|s] [-l|d] <path to source file>"
+"Usage: main.py [-n|d] [-l|d] [-b|i|s] <path to source file>"
 import sys
 import ast
 import cStringIO
 import os
 import settings
 
-import reorganizer
-import unparser
-import instructor
-from formatter import TuringlabJson
+import formatter
+import reorganiser
+import processor
 
 def main(argv):
     if len(argv) < 1:
@@ -20,7 +19,7 @@ def main(argv):
 
     mode = settings.DEPEND
     level = settings.LOW
-    stat_only = False
+    option = settings.BOTH
     for i in range(len(argv) - 1):
         if argv[i] == "-n":
             mode = settings.NORMAL
@@ -30,28 +29,37 @@ def main(argv):
             level = settings.LOW
         elif argv[i] == "-h":
             level = settings.HIGH
-        elif argv[i] == '-s':
-            stat_only = True
-    fn = argv[-1]
-    assert os.path.exists(fn), "File doesn't exist: \"" + fn + "\""
+        elif argv[i] == "-b":
+            option = settings.BOTH
+        elif argv[i] == "-i":
+            option = settings.INSTR
+        elif argv[i] == "-s":
+            option = settings.STATIS
+        else:
+            print __doc__
+            return
 
-    # reorganize the syntax tree according to denpendencies
-    ordered_tree = reorganizer.Unparser(fn).run()
+    filename = argv[-1]
+    assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
+    with open(filename, "r") as pyfile:
+        source = pyfile.read()
+    tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
 
-    # unparse reorganized AST back to code
-    steps_code = unparser.Unparser(ordered_tree, lvl=level).run()
+    # generate re-organised source code
+    front_code, back_code = reorganiser.Reorganiser(tree, mode, level).run()
 
-    # generate instructions & statistics by analyzing the AST
-    steps_instructions, statistics = \
-        instructor.Unparser(ordered_tree, mode, level).run()
+    # generate instructions and statistics
+    new_source = "\n".join(back_code)
+    new_tree = compile(new_source, filename, "exec", ast.PyCF_ONLY_AST)
+    instructions, statistics = processor.Processor(new_tree, level).run()
 
-    # write JSON output
-    json = TuringlabJson(steps_code, steps_instructions, statistics, fn)
-    if stat_only:
-        json.dump_stat()
-    else:
-        json.report1_json()
-    # json.email_json()
+    # generate JSON files
+    turinglab_json = formatter.TuringLabJson(front_code, instructions, statistics, filename)
+    if option != settings.STATIS:
+        turinglab_json.instr_json()
+        # turinglab_json.instr_json2()
+    if option != settings.INSTR:
+        turinglab_json.statis_json()
 
 if __name__ == '__main__':
     main(sys.argv[1:])

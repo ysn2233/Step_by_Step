@@ -1,7 +1,4 @@
 # Update on architecture of the project
-**NOTE**: something wrong with `python main.py -h sample_inputs/tree.py`, seems
-to be caused by function `tree` has no docstring. PLEASE HAVE A LOOK AT THAT IF
-HAVE TIME.
 
 Scheme of backend
 ```
@@ -12,7 +9,7 @@ Scheme of backend
 |   |           |   |___________|
 |   |           |
 |   |           |    ___________
-|   |reorganizor|   |           |
+|   |reorganiser|   |           |
 |   |           |-->|  unparser |
 |   |           |   |___________|
 |   |           |
@@ -25,13 +22,13 @@ Scheme of backend
 
 1. Moved _**formatter**_ out of `main.py` to be a self-contained module
    `formatter.py`
-2. Added _**reorganizor**_, which will reorganize an input ast (from frontend)
+2. Added _**reorganiser**_, which will reorganise an input ast (from frontend)
    into a well ordered ast according to dependencies
-3. Merged _**parser**_ with _**reorganizor**_, so no more _**parser**_ in frontend
+3. Merged _**parser**_ with _**reorganiser**_, so no more _**parser**_ in frontend
 4. Added an _**unparser**_ module at the very end, which takes an input of a
-   well ordered ast from _**reorganizor**_, and unparse it back to code.
+   well ordered ast from _**reorganiser**_, and unparse it back to code.
 5. No matter which backend module is used, communication between frontend and
-   _**reorganizor**_ always exists.
+   _**reorganiser**_ always exists.
 
 # How to generate low/high level instrucitons?
 

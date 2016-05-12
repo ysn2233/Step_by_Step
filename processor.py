@@ -1,14 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: instructor.py [-n|d] [-l|h] <path to source file>"
+"Usage: processor.py [-l|h] [-b|i|s] <path to source file>"
 import sys
 import ast
 import cStringIO
 import os
 import networkx
-import settings
 import re
+import settings
 
 def interleave(inter, f, seq):
     "Call f on each item in seq, calling inter() in between."
@@ -22,13 +22,13 @@ def interleave(inter, f, seq):
             inter()
             f(x)
 
-class Unparser:
+class Processor:
     """Methods in this class recursively traverse an AST and
-    output source code for the abstract syntax; original formatting
-    is disregarded."""
+    generate instructions and statistitcs for the abstract
+    syntax."""
 
-    def __init__(self, tree, mode=settings.NORMAL, level=settings.LOW):
-        "Initialise instructor."
+    def __init__(self, tree, level=settings.LOW):
+        "Initialise processor."
         self.instructions = []
         self.statistics = {}
         self.tree = tree
@@ -39,13 +39,9 @@ class Unparser:
         self.func_name = ""
         self.direct_call = True
         self.import_module = False
-        self.mode = mode
-        self.dep_graph = networkx.DiGraph()
-        self.curr_vert = ""
+        self.curr_node = ""
         self.curr_buf = cStringIO.StringIO()
         self.buf_list = {}
-        self.stat_list = []
-        self.call_list = []
         self.out_list = []
         self.stat_seq = 1
         self.comp_stat = False
@@ -62,53 +58,37 @@ class Unparser:
         self.other_calls = 0
 
     def run(self):
-        "Generate instructions."
+        "Generate instructions and statistics."
         self.imp_mod("built_in")
         self.dispatch(self.tree)
         self.newline()
-        self.search()
         self.flush()
         self.collect()
         return self.instructions, self.statistics
 
     def newline(self):
-        "End current code/instruction block."
+        "Start a new line."
         self.direct_call = True
         if self.no_newline:
             self.no_newline = False
             return
         self.write("\n")
 
-        # code for function dependency
-        if not self.curr_vert:
+        # code for high/low level
+        if not self.curr_node:
             if not self.comp_stat:
-                self.curr_vert = "_stat_" + str(self.stat_seq) + "_"
-                self.dep_graph.add_node(self.curr_vert)
-                self.buf_list[self.curr_vert] = self.curr_buf
+                self.curr_node = "_stat_" + str(self.stat_seq) + "_"
+                self.buf_list[self.curr_node] = self.curr_buf
                 self.curr_buf = cStringIO.StringIO()
-                self.stat_list.append(self.curr_vert)
-                for i in range(len(self.call_list)):
-                    self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
-                self.out_list.append(self.curr_vert)
-                self.curr_vert = ""
-                self.call_list = []
+                self.out_list.append(self.curr_node)
+                self.curr_node = ""
                 self.stat_seq += 1
         else:
             if not self.func_def:
-                self.dep_graph.add_node(self.curr_vert)
-                if self.level == settings.HIGH:
-                    self.buf_list[self.curr_vert] = cStringIO.StringIO()
-                    self.buf_list[self.curr_vert].write(self.curr_buf.getvalue().split("\n")[0] + "\n")
-                    self.buf_list[self.curr_vert].write(self.docs_list[self.curr_vert])
-                    self.curr_buf = cStringIO.StringIO()
-                else:
-                    self.buf_list[self.curr_vert] = self.curr_buf
-                    self.curr_buf = cStringIO.StringIO()
-                for i in range(len(self.call_list)):
-                    self.dep_graph.add_edge(self.curr_vert, self.call_list[i], weight=i)
-                self.out_list.append(self.curr_vert)
-                self.curr_vert = ""
-                self.call_list = []
+                self.buf_list[self.curr_node] = self.curr_buf
+                self.curr_buf = cStringIO.StringIO()
+                self.out_list.append(self.curr_node)
+                self.curr_node = ""
 
     def indent(self):
         "Write appropriate indentation."
@@ -156,36 +136,32 @@ class Unparser:
 
     def enter_def(self, name):
         if self.indents == 0:
-            self.curr_vert = name
+            self.curr_node = name
             self.func_def = True
 
     def leave_def(self):
         if self.indents == 0:
             self.func_def = False
 
-    def dep_dfs(self, source):
-        self.colour[source] = settings.GREY
-        edges = self.dep_graph.edges(source, "weight")
-        edges.sort(key=lambda t:t[2])
-        for e in edges:
-            if self.colour[e[1]] == settings.WHITE:
-                self.dep_dfs(e[1])
-        self.colour[source] = settings.BLACK
-        self.out_list.append(source)
-
-    def search(self):
-        if (self.mode == settings.DEPEND):
-            self.out_list = []
-            nodes = self.dep_graph.nodes()
-            self.colour = dict(zip(nodes, [settings.WHITE] * len(nodes)))
-            for s in self.stat_list:
-                self.dep_dfs(s)
-
     def flush(self):
-        for vert in self.out_list:
-            if not self.buf_list.has_key(vert):
+        for node in self.out_list:
+            if not self.buf_list.has_key(node):
                 continue
-            self.instructions.extend(self.buf_list[vert].getvalue().split("\n")[:-1])
+
+            # code for high/low level
+            if re.match(r"(_stat_[0-9]+_)", node):
+                self.instructions.extend(self.buf_list[node].getvalue().split("\n")[:-1])
+                continue
+            if self.level == settings.LOW:
+                self.instructions.extend(self.buf_list[node].getvalue().split("\n")[:-1])
+            else:
+                def_instr = self.buf_list[node].getvalue().split("\n")[0][:-1]
+                if self.docs_list.has_key(node):
+                    docs_split = self.docs_list[node].split(" ", 1)
+                    def_instr += ", which "
+                    def_instr += docs_split[0].lower() + "s "
+                    def_instr += docs_split[1]
+                self.instructions.append(def_instr)
 
     def match(self, call, sign):
         if call[0] != sign[0] or call[1] != sign[1]:
@@ -530,21 +506,20 @@ class Unparser:
             self.write(" with parameters ")
         self.dispatch(t.args)
         self.enter()
+
+        # code for high/low level
         if (isinstance(t.body[0], ast.Expr) and
             isinstance(t.body[0].value, ast.Str)):
-            doc_str = ""
-            first_line = True
-            for line in ast.get_docstring(t).strip().split("\n"):
-                doc_str += "    " * self.indents
-                if first_line:
-                    doc_str += "   "
-                    first_line = False
-                doc_str += line.strip()
-                doc_str += "\n"
-            self.docs_list[t.name] = doc_str
+            self.docs_list[t.name] = ""
+            docs_lines = ast.get_docstring(t).strip().split("\n")
+            for i in range(len(docs_lines)):
+                self.docs_list[t.name] += docs_lines[i].strip()
+                if i < len(docs_lines) - 1:
+                    self.docs_list[t.name] += " "
             self.dispatch(t.body[1:])
         else:
             self.dispatch(t.body)
+
         self.func_name = ""
         self.leave()
 
@@ -638,7 +613,6 @@ class Unparser:
         # if from __future__ import unicode_literals is in effect,
         # then we want to output string literals using a 'b' prefix
         # and unicode literals with no prefix.
-        self.write("string ")
         if "unicode_literals" not in self.future_imports:
             self.write(repr(tree.s))
         elif isinstance(tree.s, str):
@@ -762,14 +736,6 @@ class Unparser:
         self.dispatch(t.value)
 
     def _Call(self, t):
-        # code for function dependency
-        if isinstance(t.func, ast.Name):
-            if t.func.id not in self.call_list:
-                self.call_list.append(t.func.id)
-        elif isinstance(t.func, ast.Attribute):
-            if t.func.attr not in self.call_list:
-                self.call_list.append(t.func.attr)
-
         # code for function templates
         func_tml = ""
         if isinstance(t.func, ast.Name):
@@ -891,13 +857,13 @@ class Unparser:
             else:
                 self.imp_func(self.from_mod, t.name)
 
-def roundtrip(filename, output=sys.stdout, option=settings.BOTH, mode=settings.NORMAL, level=settings.LOW):
+def roundtrip(filename, output=sys.stdout, level=settings.LOW, option=settings.BOTH):
     assert os.path.exists(filename), "File doesn't exist: \"" + filename + "\""
     with open(filename, "r") as pyfile:
         source = pyfile.read()
     tree = compile(source, filename, "exec", ast.PyCF_ONLY_AST)
 
-    instructions, statistics = Unparser(tree, mode, level).run()
+    instructions, statistics = Processor(tree, level).run()
     if option != settings.STATIS:
         for i in instructions:
             output.write(i + "\n")
@@ -941,18 +907,23 @@ def main(argv):
         print __doc__
         return
 
-    md = settings.DEPEND
     lv = settings.LOW
+    op = settings.BOTH
     for i in range(len(argv) - 1):
-        if argv[i] == "-n":
-            md = settings.NORMAL
-        elif argv[i] == "-d":
-            md = settings.DEPEND
-        elif argv[i] == "-l":
+        if argv[i] == "-l":
             lv = settings.LOW
         elif argv[i] == "-h":
             lv = settings.HIGH
-    roundtrip(argv[-1], mode=md, level=lv)
+        elif argv[i] == "-b":
+            op = settings.BOTH
+        elif argv[i] == "-i":
+            op = settings.INSTR
+        elif argv[i] == "-s":
+            op = settings.STATIS
+        else:
+            print __doc__
+            return
+    roundtrip(argv[-1], level=lv, option=op)
 
 if __name__ == '__main__':
     main(sys.argv[1:])

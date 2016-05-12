@@ -1,6 +1,6 @@
 # .unittest_coveragerc to control coverage.py
 [run]
-branch = False
+branch = True
 data_file = .unittest_coverage
 include = instructor.py
 
