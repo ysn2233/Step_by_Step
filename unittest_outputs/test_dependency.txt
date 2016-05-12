@@ -1,0 +1,14 @@
+Define a function 'func3' without parameters:
+    Return 3
+Define a function 'func4' without parameters:
+    Return 4
+Define a function 'func1' without parameters:
+    Return (return value of function 'func3' without arguments plus return value of function 'func4' without arguments)
+Print return value of function 'func1' without arguments to the screen
+Define a function 'func5' without parameters:
+    Return 5
+Define a function 'func6' without parameters:
+    Return 6
+Define a function 'func2' without parameters:
+    Return (return value of function 'func5' without arguments plus return value of function 'func6' without arguments)
+Print return value of function 'func2' without arguments to the screen
