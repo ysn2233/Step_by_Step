@@ -1,2 +1,2 @@
-Initialise a variable 'a' to 1
-Assign 2 to 'a'[0]
+Initialise a variable `a` to 1
+Assign 2 to `a`[0]

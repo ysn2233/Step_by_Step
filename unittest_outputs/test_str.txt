@@ -1,4 +1,4 @@
-string 'bytes literals'
-string u'unicode string'
-string 'raw string'
-string 'normal string'
+'bytes literals'
+u'unicode string'
+'raw string'
+'normal string'

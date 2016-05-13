@@ -2,7 +2,12 @@
 [run]
 branch = True
 data_file = .unittest_coverage
-include = instructor.py
+include =
+    processor.py
+    reorganiser.py
+    main.py
+    formatter.py
+    settings.py
 
 [report]
 precision = 2

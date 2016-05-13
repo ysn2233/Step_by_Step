@@ -1,12 +1,12 @@
-Define a class 'A':
-    Define a function 'm' with a parameter 'self':
-        Print string 'm of A called' to the screen
-Define a class 'B', which inherits from 'A':
-    Define a function 'm' with a parameter 'self':
-        Print string 'm of B called' to the screen
-Define a class 'C', which inherits from 'A':
-    Define a function 'm' with a parameter 'self':
-        Print string 'm of C called' to the screen
-Define a class 'D', which inherits from 'B', 'C':
-    Define a function 'm' with a parameter 'self':
-        Print string 'm of D called' to the screen
+Define a class `A`:
+    Define a function `m` with a parameter `self`:
+        Print 'm of A called' to the screen
+Define a class `B`, which inherits from `A`:
+    Define a function `m` with a parameter `self`:
+        Print 'm of B called' to the screen
+Define a class `C`, which inherits from `A`:
+    Define a function `m` with a parameter `self`:
+        Print 'm of C called' to the screen
+Define a class `D`, which inherits from `B`, `C`:
+    Define a function `m` with a parameter `self`:
+        Print 'm of D called' to the screen

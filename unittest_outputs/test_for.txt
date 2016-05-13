@@ -1,2 +1,2 @@
-Iterate variable 'i' over the range from 0 to 3, and do the following:
-    Print 'i' to the screen
+Iterate variable `i` over the range from 0 to 3, and do the following:
+    Print `i` to the screen

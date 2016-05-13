@@ -1,1 +1,1 @@
-dictionary {string 'a': string 'apple', string 'b': string 'banana', string 'g': string 'grape', string 'o': string 'orange'}
+dictionary {'a': 'apple', 'b': 'banana', 'g': 'grape', 'o': 'orange'}

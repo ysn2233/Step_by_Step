@@ -1,5 +1,4 @@
 import turtle
-
 t = turtle.Turtle()
 t.settheading(90)
 t.forward(10)

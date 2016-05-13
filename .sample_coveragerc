@@ -2,7 +2,7 @@
 [run]
 branch = True
 data_file = .sample_coverage
-include = instructor.py
+include = processor.py
 
 [report]
 precision = 2

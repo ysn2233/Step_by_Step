@@ -1,9 +1,9 @@
-Import module 'turtle'
-Initialise a variable 't' to create a turtle
-Call function 'settheading' on object 't' with an argument 90
-Move turtle 't' forwards by 10 steps
-Move turtle 't' backwards by 10 steps
-Turn turtle 't' left by 10 degrees
-Turn turtle 't' right by 10 degrees
+Import module `turtle`
+Initialise a variable `t` to create a turtle
+Call function `settheading` on object `t` with an argument 90
+Move turtle `t` forwards by 10 steps
+Move turtle `t` backwards by 10 steps
+Turn turtle `t` left by 10 degrees
+Turn turtle `t` right by 10 degrees
 Pick up the pen
 Put down the pen

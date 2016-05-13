@@ -1,9 +1,9 @@
 the range from 0 to 5
 the range from 1 to 5
 the range from 1 to 5 with the step of 2
-Initialise a variable 'a' to the absolute value of (-1)
+Initialise a variable `a` to the absolute value of (-1)
 Print the absolute value of (-1) to the screen
-Print string "What's your name? " to the screen, and get an input from the user
-Call function 'forward' on object 't' with an argument 10
-Call function 'help' without arguments
-Call function 'foo' with arguments 'a', 'b' set to 'c'
+Print "What's your name? " to the screen, and get an input from the user
+Call function `forward` on object `t` with an argument 10
+Call function `help` without arguments
+Call function `foo` with arguments `a`, `b` set to `c`

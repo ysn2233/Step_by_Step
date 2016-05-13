@@ -208,7 +208,7 @@ class Processor:
 
     def imp_mod(self, mod, alias=""):
         curr_dir = os.path.dirname(os.path.realpath(__file__))
-        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
+        filename = os.path.join(curr_dir, "modules", mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
@@ -230,7 +230,7 @@ class Processor:
 
     def imp_func(self, mod, func, alias=""):
         curr_dir = os.path.dirname(os.path.realpath(__file__))
-        filename = os.path.join(curr_dir, 'modules', mod + ".mod")
+        filename = os.path.join(curr_dir, "modules", mod + ".mod")
         if not os.path.exists(filename):
             return
         with open(filename, "r") as file:
@@ -314,7 +314,7 @@ class Processor:
         self.write("From ")
         self.write("." * t.level)
         if t.module:
-            self.write("module '" + t.module + "'")
+            self.write("module `" + t.module + "`")
             self.from_mod = t.module
         self.write(" import ")
         interleave(lambda: self.write(", "), self.dispatch, t.names)
@@ -445,9 +445,9 @@ class Processor:
         self.indent()
         self.write("Check the condition of ")
         self.dispatch(t.test)
-        self.write(" and if it is not ture, throw an exception ")
+        self.write(" and if it is not ture, throw an exception")
         if t.msg:
-            self.write("with the message ")
+            self.write(" with the message ")
             self.dispatch(t.msg)
 
     def _Print(self, t):
@@ -470,7 +470,7 @@ class Processor:
             self.stat_execs["class_def"] += 1
 
         self.indent()
-        self.write("Define a class '" + t.name + "'")
+        self.write("Define a class `" + t.name + "`")
         if t.bases:
             self.write(", which inherits from ")
             do_comma = False
@@ -497,7 +497,7 @@ class Processor:
         self.func_name = t.name
         self.def_calls[t.name] = 0
         self.indent()
-        self.write("Define a function '" + t.name + "'")
+        self.write("Define a function `" + t.name + "`")
         if len(t.args.args) == 0:
             self.write(" without parameters")
         elif len(t.args.args) == 1:
@@ -623,14 +623,13 @@ class Processor:
             assert False, "shouldn't get here"
 
     def _Name(self, t):
-        self.write("'")
+        self.write("`")
         self.write(t.id)
-        self.write("'")
+        self.write("`")
 
     def _Repr(self, t):
-        self.write("`")
+        self.write("representation of ")
         self.dispatch(t.value)
-        self.write("`")
 
     def _Num(self, t):
         repr_n = repr(t.n)
@@ -731,7 +730,7 @@ class Processor:
         self.write(")")
 
     def _Attribute(self,t):
-        self.write("'" + t.attr + "'")
+        self.write("`" + t.attr + "`")
         self.write(" on object ")
         self.dispatch(t.value)
 
@@ -754,7 +753,7 @@ class Processor:
         if func_tml:
             if (isinstance(t.func, ast.Attribute) and
                 isinstance(t.func.value, ast.Name)):
-                func_tml = func_tml.replace("[obj]", "'" + t.func.value.id + "'")
+                func_tml = func_tml.replace("[obj]", "`" + t.func.value.id + "`")
             tml_split = func_tml.split("|")
             tml_args = re.findall(r"\[(arg[0-9]+)\]", tml_split[0])
             for arg in tml_args:
@@ -837,22 +836,22 @@ class Processor:
                 self.dispatch(d)
 
     def _keyword(self, t):
-        self.write("'" + t.arg + "'")
+        self.write("`" + t.arg + "`")
         self.write(" set to ")
         self.dispatch(t.value)
 
     def _alias(self, t):
         if self.import_module:
-            self.write("module '" + t.name + "'")
+            self.write("module `" + t.name + "`")
             if t.asname:
-                self.write(" as '" + t.asname + "'")
+                self.write(" as `" + t.asname + "`")
                 self.imp_mod(t.name, t.asname)
             else:
                 self.imp_mod(t.name)
         else:
-            self.write("'" + t.name + "'")
+            self.write("`" + t.name + "`")
             if t.asname:
-                self.write(" as '" + t.asname + "'")
+                self.write(" as `" + t.asname + "`")
                 self.imp_func(self.from_mod, t.name, t.asname)
             else:
                 self.imp_func(self.from_mod, t.name)

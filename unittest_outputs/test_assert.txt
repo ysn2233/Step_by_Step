@@ -1,2 +1,2 @@
-Check the condition of ((1 plus 1) is greater than or equal to 0) and if it is not ture, throw an exception with the message string 'error'
-Check the condition of (1 is greater than 0) and if it is not ture, throw an exception 
+Check the condition of ((1 plus 1) is greater than or equal to 0) and if it is not ture, throw an exception with the message 'error'
+Check the condition of (1 is greater than 0) and if it is not ture, throw an exception

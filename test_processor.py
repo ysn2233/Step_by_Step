@@ -1,26 +1,26 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"Usage: test_instructor.py"
+"Usage: test_processor.py"
 import unittest
 import cStringIO
-import instructor
+import processor
 import settings
 
 PY_DIR = "unittest_inputs/"
 TXT_DIR = "unittest_outputs/"
 
-class TestInstructor(unittest.TestCase):
+class TestProcessor(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
-        super(TestInstructor, self).__init__(*args, **kwargs)
+        super(TestProcessor, self).__init__(*args, **kwargs)
         self.result = [];
         self.expect = [];
 
     def setUp(self):
         py_filename = PY_DIR + self._testMethodName + ".py"
         buffer = cStringIO.StringIO()
-        instructor.roundtrip(py_filename, buffer, settings.INSTR)
+        processor.roundtrip(py_filename, buffer, option=settings.INSTR)
         self.result = buffer.getvalue().splitlines(True)
 
         txt_filename = TXT_DIR + self._testMethodName + ".txt"
@@ -35,7 +35,7 @@ class TestInstructor(unittest.TestCase):
     def test_import(self):
         self.compare()
 
-    def test_importfrom(self):
+    def test_importFrom(self):
         self.compare()
 
     def test_assign(self):

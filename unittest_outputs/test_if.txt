@@ -1,6 +1,6 @@
-If 'a', do the following:
-    Print string 'hi' to the screen
-Otherwise, if 'b', do the following:
-    Print string 'hello' to the screen
+If `a`, do the following:
+    Print 'hi' to the screen
+Otherwise, if `b`, do the following:
+    Print 'hello' to the screen
 Otherwise, do the following:
-    Print string 'bye' to the screen
+    Print 'bye' to the screen

@@ -1,2 +1,2 @@
-From module '__future__' import 'division'
-From module 'math' import 'sqrt'
+From module `__future__` import `division`
+From module `math` import `sqrt`

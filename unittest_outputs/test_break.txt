@@ -1,3 +1,3 @@
-Iterate variable 'letter' over string 'Python', and do the following:
-    If ('letter' is equal to string 'h'), do the following:
+Iterate variable `letter` over 'Python', and do the following:
+    If (`letter` is equal to 'h'), do the following:
         Break out of the current loop
