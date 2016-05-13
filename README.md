@@ -1,96 +1,95 @@
-# Update on architecture of the project
+# How to generate re-organised output?
 
-Scheme of backend
-```
-    Back end
-|    ___________     ___________
-|   |           |   |           |
-|   |           |-->|   stat    |
-|   |           |   |___________|
-|   |           |
-|   |           |    ___________
-|   |reorganiser|   |           |
-|   |           |-->|  unparser |
-|   |           |   |___________|
-|   |           |
-|   |           |    ___________
-|   |           |   |           |
-|   |           |-->| instructor|
-|   |___________|   |___________|
-|
-```
+Take `reorganiser.py` for example:
 
-1. Moved _**formatter**_ out of `main.py` to be a self-contained module
-   `formatter.py`
-2. Added _**reorganiser**_, which will reorganise an input ast (from frontend)
-   into a well ordered ast according to dependencies
-3. Merged _**parser**_ with _**reorganiser**_, so no more _**parser**_ in frontend
-4. Added an _**unparser**_ module at the very end, which takes an input of a
-   well ordered ast from _**reorganiser**_, and unparse it back to code.
-5. No matter which backend module is used, communication between frontend and
-   _**reorganiser**_ always exists.
-
-# How to generate low/high level instrucitons?
-
-Take *instructor.py* for example:
-
-Generate low level instructions:
+Generate re-organised source code:
 ```sh
-λ> python instructor.py sample_inputs/docstring.py
+λ> python reorganiser.py -d sample_inputs/dependency.py
 ```
 Or
 ```sh
-λ> python instructor.py -l sample_inputs/docstring.py
+λ> python reorganiser.py sample_inputs/dependency.py
 ```
+
+Generate original source code:
+```sh
+λ> python reorganiser.py -n sample_inputs/dependency.py
+```
+
+Note: The output of `main.py` can now be handled in a similar way.
+
+
+
+# How to generate high/low level output?
+
+Take `processor.py` for example:
 
 Generate high level instructions:
 ```sh
-λ> python instructor.py -h sample_inputs/docstring.py
+λ> python processor.py -h sample_inputs/draw_house.py
 ```
 
-Note: The output of *main.py* and *unparse.py* can now be handled in a
-similar way.
-
-# How to use dependency feature to re-organise output?
-
-Take *instructor.py* for example:
-
-Re-organise generated instructions in dependency order
+Generate low level instructions:
 ```sh
-λ> python instructor.py -d sample_inputs/dependency.py
-```
-
-Keep generated instructions in original order
-```sh
-λ> python instructor.py sample_inputs/dependency.py
+λ> python processor.py -l sample_inputs/draw_house.py
 ```
 Or
 ```sh
-λ> python instructor.py -n sample_inputs/dependency.py
+λ> python processor.py sample_inputs/draw_house.py
 ```
 
-Note: The output of *main.py* and *unparse.py* can now be handled in a
-similar way.
+Note: The output of `main.py` can now be handled in a similar way.
 
-# How to create and run a test case to cover a particular method in instructor.py?
 
-1. define a new method named with the test_ prefix in the TestInstructor
-class of test_instructor.py, which simplely calls the compare() method
-provided by the class.
+
+# How to generate instructional and statistical output?
+
+Take `processor.py` for example:
+
+Generate both instructions and statistics:
+```sh
+λ> python processor.py -b sample_inputs/draw_house.py
+```
+Or
+```sh
+λ> python processor.py sample_inputs/draw_house.py
+```
+
+Generate instructions only:
+```sh
+λ> python processor.py -i sample_inputs/draw_house.py
+```
+
+Generate statistics only:
+```sh
+λ> python processor.py -s sample_inputs/draw_house.py
+```
+
+Note: The output of `main.py` can now be handled in a similar way.
+
+
+
+# How to create and run a test case to cover a particular method in `processor.py`?
+
+1. define a new method named with the _**test\_**_ prefix in the
+_**TestProcessor**_ class of `test_processor.py`, which simplely calls
+the _**compare()**_ method provided by the class.
 
 2. create a new python file with its basename the same as the method
-name in unittest_inputs, and add the python code for generating
+name in `unittest_inputs`, and add the python code for generating
 instructions into the file.
 
 3. create a new text file with its basename the same as the method
-name in unittest_outputs, and add the expected instructions for
+name in `unittest_outputs`, and add the expected instructions for
 comparison into the file.
 
-4. run test_instructor.py or unittest_coverage.sh to compare the
+4. run `test_processor.py` or `unittest_coverage.sh` to compare the
 generated and expected instructions line by line.
 
-There is a demo case for testing _Import(self, t) given in the project
-that you can refer to.
+There is a demo case for testing _**\_Import(self, t)**_ given in the
+project that you can refer to.
+
+
 
 # Demo of dumping json to stdout
 ```sh
