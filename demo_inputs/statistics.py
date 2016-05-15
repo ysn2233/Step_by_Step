@@ -1,4 +1,4 @@
-1import math
+import math
 import turtle
 t = turtle.Turtle()
 
