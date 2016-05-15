@@ -10,4 +10,4 @@ goto                    Move turtle [obj] to position ([arg1], [arg2])
 speed                   Set moving speed of turtle [obj] to [arg1]
 position                position of turtle [obj]
 shape                   Change turtle [obj] shape to a [arg1]
-circle                  Move turtle [obj] around a circle
+circle                  Move turtle [obj] around a circle with radius [arg1]

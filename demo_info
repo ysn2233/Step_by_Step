@@ -1,0 +1,24 @@
+# terminal font size: 22
+
+# demo1: naive translation
+mv ./modules/turtle.mod ./modules/_turtle.mod
+python processor.py -i -l demo_inputs/naive.py
+
+# demo2: function templates
+mv ./modules/_turtle.mod ./modules/turtle.mod
+python processor.py -i -l demo_inputs/naive.py
+
+# demo3: code reorganisation
+python reorganiser.py -d demo_inputs/dependency.py
+python reorganiser.py -d demo_inputs/dependency.py > demo_inputs/new_dependency.py
+
+# demo4: function heuristics
+python processor.py -i -h sample_inputs/new_draw_house.py
+
+# demo5: code statistics
+python processor.py -s sample_inputs/new_draw_house.py
+
+# demo6: turinglab website
+# http://app.turinglab.co.uk
+# stepbystep
+# password
