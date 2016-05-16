@@ -4,12 +4,18 @@
 import subprocess
 import shutil
 import sys
+import os
 
 TMP_PY = "tmp.py"
 TMP_EPS = "tmp.eps"
 TMP_PNG = "tmp.png"
 
 def run(fn):
+    basename = fn.rsplit('/', 1)[-1][:-2]
+    dirpath = fn.rsplit('/')[0]
+    TMP_EPS = basename + 'eps'
+    TMP_PNG = basename + 'png' 
+
     # copy to tmp.py
     shutil.copyfile(fn, TMP_PY)
 
@@ -36,7 +42,12 @@ def run(fn):
     subprocess.call(args)
 
     # remove all tmp files
-    pass
+    try:
+        os.remove(TMP_PY)
+        shutil.move(TMP_PNG, dirpath)
+        shutil.move(TMP_EPS, dirpath)
+    except:
+        pass
 
 if __name__ == '__main__':
     run(sys.argv[1])

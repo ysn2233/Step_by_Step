@@ -1,23 +1,26 @@
+# set up demo environment
 # terminal font size: 13
+source ../demo/bin/activate
 
-# demo1: naive translation
-mv ./modules/turtle.mod ./modules/_turtle.mod
-python processor.py -i -l demo_inputs/naive_template.py
+# demo1: function templates
+python processor.py -i -l demo_inputs/template.py
 
-# demo2: function templates
-mv ./modules/_turtle.mod ./modules/turtle.mod
-python processor.py -i -l demo_inputs/naive_template.py
-
-# demo3: code reorganisation
+# demo2: code reorganisation
 python reorganiser.py -d demo_inputs/dependency.py
 
-# demo4: function heuristics
+# demo3: function heuristics
 python processor.py -i -h demo_inputs/heuristics.py
 
-# demo5: code statistics
-python processor.py -s demo_inputs/statistics.py
+# demo4: code statistics
+python processor.py -s demo_inputs/draw_house.py
+
+# demo5: picture capturing
+python capturer.py demo_inputs/draw_house.py
 
 # demo6: turinglab website
 # http://app.turinglab.co.uk
 # stepbystep
 # password
+
+# quit demo environment
+deactivate
