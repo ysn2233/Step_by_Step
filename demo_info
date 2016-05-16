@@ -1,12 +1,12 @@
 # set up demo environment
-# terminal font size: 18
+# terminal font size: 16
 source ../demo/bin/activate
 
 # demo1: function templates
 python processor.py -i -l demo_inputs/draw_square.py
 
 # demo2: code reorganisation
-python reorganiser.py -d demo_inputs/simplfied_draw_house.py
+python reorganiser.py -d demo_inputs/simplified_draw_house.py
 
 # demo3: code statistics
 python processor.py -s demo_inputs/draw_house.py

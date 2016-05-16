@@ -12,9 +12,16 @@ TMP_PNG = "tmp.png"
 
 def run(fn):
     basename = fn.rsplit('/', 1)[-1][:-2]
-    dirpath = fn.rsplit('/')[0]
+    dirpath = fn.rsplit('/', 1)[0]
     TMP_EPS = basename + 'eps'
-    TMP_PNG = basename + 'png' 
+    TMP_PNG = basename + 'png'
+
+    # remove files of last time
+    try:
+        os.remove(fn[:-2] + 'png')
+        os.remove(fn[:-2] + 'eps')
+    except:
+        pass
 
     # copy to tmp.py
     shutil.copyfile(fn, TMP_PY)
@@ -24,6 +31,8 @@ def run(fn):
         f.write('\n')
         f.write('screen = t.getscreen()\n')
         f.write('canvas = screen.getcanvas().postscript(file="%s")' % TMP_EPS);
+        f.write('\n')
+        f.write('raw_input()')
 
     # run to capture
     subprocess.call(['python', TMP_PY])
