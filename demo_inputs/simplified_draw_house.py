@@ -4,7 +4,7 @@ t = turtle.Turtle()
 
 def drawRoof(width,height):
     "Draw a triangular roof with given width and height"
-    print "Draw a roof"
+    pass
 
 def drawHouse():
     "Draw a house consisting of a square base roof and a number of windows"
@@ -14,10 +14,10 @@ def drawHouse():
 
 def drawWindow(width,height):
     "Draw a window of given width and height with a cross in the center"
-    print "Draw a window"
+    pass
 
 def drawSquare(length):
     "Draw a square with given side length"
-    print "Draw a square"
+    pass
 
 drawHouse()

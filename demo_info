@@ -1,23 +1,20 @@
 # set up demo environment
-# terminal font size: 13
+# terminal font size: 18
 source ../demo/bin/activate
 
 # demo1: function templates
-python processor.py -i -l demo_inputs/template.py
+python processor.py -i -l demo_inputs/draw_square.py
 
 # demo2: code reorganisation
-python reorganiser.py -d demo_inputs/dependency.py
+python reorganiser.py -d demo_inputs/simplfied_draw_house.py
 
-# demo3: function heuristics
-python processor.py -i -h demo_inputs/heuristics.py
-
-# demo4: code statistics
+# demo3: code statistics
 python processor.py -s demo_inputs/draw_house.py
 
-# demo5: picture capturing
+# demo4: picture capturing
 python capturer.py demo_inputs/draw_house.py
 
-# demo6: turinglab website
+# demo5: turinglab website
 # http://app.turinglab.co.uk
 # stepbystep
 # password
